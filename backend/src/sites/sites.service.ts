@@ -141,8 +141,13 @@ export class SitesService {
           };
         });
 
-        this.writeSitesToFile(formattedSites);
-        return formattedSites;
+        const dbSiteNames = new Set(formattedSites.map((s) => s.name.trim().toLowerCase()));
+        const extraFileSites = fileSites.filter((fs) => fs && fs.name && !dbSiteNames.has(fs.name.trim().toLowerCase()));
+
+        const combined = [...formattedSites, ...extraFileSites];
+
+        this.writeSitesToFile(combined);
+        return combined;
       }
 
       return this.readSitesFromFile();
@@ -678,15 +683,18 @@ export class SitesService {
   async syncSites(clientSites: SiteItem[]): Promise<SiteItem[]> {
     if (!Array.isArray(clientSites)) return this.getAllSites();
 
-    const existing = await this.getAllSites();
+    const existing = this.readSitesFromFile();
     const map = new Map<string, SiteItem>();
 
-    existing.forEach((s) => map.set(s.id, s));
+    existing.forEach((s) => {
+      if (s && s.name) map.set(s.name.trim().toLowerCase(), s);
+    });
 
     clientSites.forEach((s) => {
-      if (s && s.id && s.name) {
-        if (!map.has(s.id) || !s.id.startsWith('daily_')) {
-          map.set(s.id, s);
+      if (s && s.name) {
+        const key = s.name.trim().toLowerCase();
+        if (!map.has(key) || (s.id && !s.id.startsWith('daily_'))) {
+          map.set(key, s);
         }
       }
     });
@@ -694,28 +702,39 @@ export class SitesService {
     const merged = Array.from(map.values());
 
     if (this.prisma.isConnected) {
-      for (const site of clientSites) {
+      for (const site of merged) {
         if (!site || !site.name) continue;
         try {
-          if (!site.id.startsWith('daily_') && !site.id.startsWith('site_')) {
-            const statusEnum = site.status === 'BERHASIL' ? SiteStatus.SELESAI : site.status === 'GAGAL' ? SiteStatus.GAGAL_ADA_REPORT : SiteStatus.BELUM_DICEK;
-            await this.prisma.site.upsert({
-              where: { id: site.id },
-              update: {
-                name: site.name,
-                url: site.url,
-                status: statusEnum,
-              },
-              create: {
-                id: site.id,
-                name: site.name,
-                url: site.url,
+          const statusEnum = site.status === 'BERHASIL' ? SiteStatus.SELESAI : site.status === 'GAGAL' ? SiteStatus.GAGAL_ADA_REPORT : SiteStatus.BELUM_DICEK;
+          const siteName = site.name.trim();
+          const siteUrl = site.url && site.url.trim() ? site.url.trim() : `https://${siteName.toLowerCase().replace(/[^a-z0-9]/g, '')}.com`;
+
+          const existingDbSite = await this.prisma.site.findFirst({
+            where: { name: { equals: siteName } },
+          });
+
+          if (existingDbSite) {
+            await this.prisma.site.update({
+              where: { id: existingDbSite.id },
+              data: {
+                url: siteUrl,
                 status: statusEnum,
               },
             });
+            site.id = existingDbSite.id;
+          } else {
+            const newDbSite = await this.prisma.site.create({
+              data: {
+                name: siteName,
+                url: siteUrl,
+                status: statusEnum,
+                version: 1,
+              },
+            });
+            site.id = newDbSite.id;
           }
-        } catch {
-          // ignore DB error
+        } catch (dbErr) {
+          console.warn('Prisma sync insert error:', dbErr);
         }
       }
     }
