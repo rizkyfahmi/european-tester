@@ -565,20 +565,22 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
                 )
               )}
 
-              {/* Tombol Tambah Situs */}
-              <button
-                type="button"
-                onClick={() => {
-                  setNewSiteDate(dateFilterVal || getTodayDateStr());
-                  setShowAddSiteModal(true);
-                }}
-                className="px-3.5 py-1.5 text-xs font-bold rounded-full bg-gradient-to-r from-[#D3A376] to-[#FFE0B2] text-[#3E2522] hover:brightness-110 shadow-md transition flex items-center justify-center space-x-1 cursor-pointer"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
-                </svg>
-                <span>Tambah Situs</span>
-              </button>
+              {/* Tombol Tambah Situs (Admin Only) */}
+              {userRole === 'admin' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNewSiteDate(dateFilterVal || getTodayDateStr());
+                    setShowAddSiteModal(true);
+                  }}
+                  className="px-3.5 py-1.5 text-xs font-bold rounded-full bg-gradient-to-r from-[#D3A376] to-[#FFE0B2] text-[#3E2522] hover:brightness-110 shadow-md transition flex items-center justify-center space-x-1 cursor-pointer"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
+                  </svg>
+                  <span>Tambah Situs</span>
+                </button>
+              )}
             </div>
           </div>
 
