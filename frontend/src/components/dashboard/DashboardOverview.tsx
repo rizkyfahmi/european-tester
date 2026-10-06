@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import {
   getStoredSites,
+  getStoredLogs,
   getSpreadsheetUrl,
   fetchSitesFromApi,
   fetchLogsFromApi,
