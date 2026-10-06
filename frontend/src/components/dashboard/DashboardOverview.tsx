@@ -24,15 +24,8 @@ interface DashboardOverviewProps {
 export default function DashboardOverview({ forcedRole }: DashboardOverviewProps = {}) {
   const [userName, setUserName] = useState<string>('Alex Tester');
   const [userRole, setUserRole] = useState<'admin' | 'tester'>(forcedRole || 'tester');
-  const [sites, setSites] = useState<SiteItem[]>(() => {
-    if (typeof window === 'undefined') return [];
-    const cached = getStoredSites();
-    return ensureDailyMasterSites(cached, getTodayDateStr());
-  });
-  const [logs, setLogs] = useState<TestingLog[]>(() => {
-    if (typeof window === 'undefined') return [];
-    return getStoredLogs();
-  });
+  const [sites, setSites] = useState<SiteItem[]>([]);
+  const [logs, setLogs] = useState<TestingLog[]>([]);
 
   // Search & Filters
   const [searchQuery, setSearchQuery] = useState('');
@@ -105,6 +98,17 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
     } else {
       const isAdmin = savedRole === 'admin' || (saved && saved.toLowerCase().includes('admin'));
       setUserRole(isAdmin ? 'admin' : 'tester');
+    }
+
+    // Immediately load cached storage on client after mount (prevents hydration mismatch crash)
+    const cachedSites = getStoredSites();
+    if (cachedSites && cachedSites.length > 0) {
+      const todayStr = getTodayDateStr();
+      setSites(ensureDailyMasterSites(cachedSites, todayStr));
+    }
+    const cachedLogs = getStoredLogs();
+    if (cachedLogs && cachedLogs.length > 0) {
+      setLogs(cachedLogs);
     }
 
     loadData();
