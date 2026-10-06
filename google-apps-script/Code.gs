@@ -203,9 +203,9 @@ function onOpen() {
   ui.createMenu('📌 QA Sync')
     .addItem('🔄 Synchronize / Refresh from Web App', 'refreshAllData')
     .addItem('💾 Save Selected Row to Web App', 'saveSelectedRow')
-    .addItem('🗑️ Hapus Baris Terpilih dari Web App', 'deleteSelectedRow')
+    .addItem('🗑️ Delete Selected Row from Web App', 'deleteSelectedRow')
     .addSeparator()
-    .addItem('🔒 Format Header & Penanda', 'formatSystemFields')
+    .addItem('🔒 Format Headers', 'formatSystemFields')
     .addToUi();
 }
 
@@ -213,11 +213,11 @@ function onOpen() {
  * Save Single Selected Row to Web App & Database
  * Column Layout:
  * 1: No (Col A)
- * 2: Nama Situs (Col B)
- * 3: Link Situs (Col C)
- * 4: Nama Tester (Col D)
- * 5: Tanggal (Col E)
- * 6: Status / Aksi (Col F)
+ * 2: Site Name (Col B)
+ * 3: Site Link (Col C)
+ * 4: Tester Name (Col D)
+ * 5: Date (Col E)
+ * 6: Status / Action (Col F)
  * 7: ID (Col G - Hidden)
  * 8: Version (Col H - Hidden)
  */
@@ -227,18 +227,18 @@ function saveSelectedRow() {
   const range = sheet.getActiveRange();
 
   if (!range) {
-    ui.alert('⚠️ Silakan pilih baris data yang ingin disimpan.');
+    ui.alert('⚠️ Please select a data row to save.');
     return;
   }
 
   if (range.getNumRows() > 1) {
-    ui.alert('⚠️ Silakan pilih satu baris saja. Bulk update tidak diizinkan.');
+    ui.alert('⚠️ Please select only one row. Bulk update is not allowed.');
     return;
   }
 
   const rowIndex = range.getRow();
   if (rowIndex <= 1) {
-    ui.alert('⚠️ Silakan pilih baris data (bukan baris header).');
+    ui.alert('⚠️ Please select a data row (not the header row).');
     return;
   }
 
@@ -250,9 +250,12 @@ function saveSelectedRow() {
   const testerName = String(rowValues[3] || '').trim();
   const targetDateInput = String(rowValues[4] || '').trim();
   let statusInput = String(rowValues[5] || '').trim().toUpperCase();
+  const id = String(rowValues[6] || '').trim();
+  const version = parseInt(rowValues[7], 10) || 1;
+
   let effectiveId = id;
   if (!name) {
-    ui.alert('❌ Validation Failed: Nama Situs wajib diisi.');
+    ui.alert('❌ Validation Failed: Site Name is required.');
     return;
   }
 
@@ -263,9 +266,9 @@ function saveSelectedRow() {
 
   // Normalization
   let statusEnum = 'BELUM_DICEK';
-  if (statusInput === 'BERHASIL' || statusInput === 'SUCCESS' || statusInput === 'PASSED' || statusInput === 'SELESAI') {
+  if (statusInput === 'SUCCESSFUL' || statusInput === 'BERHASIL' || statusInput === 'SUCCESS' || statusInput === 'PASSED' || statusInput === 'SELESAI') {
     statusEnum = 'BERHASIL';
-  } else if (statusInput === 'GAGAL' || statusInput === 'FAILED' || statusInput === 'FAIL') {
+  } else if (statusInput === 'FAILED' || statusInput === 'GAGAL' || statusInput === 'FAIL') {
     statusEnum = 'GAGAL';
   }
 
@@ -315,7 +318,7 @@ function saveSelectedRow() {
     if (responseCode === 200) {
       // Update Status Badge (Column F / 6)
       const statusCell = sheet.getRange(rowIndex, 6);
-      const statusDisplay = statusEnum === 'BERHASIL' ? 'Berhasil' : statusEnum === 'GAGAL' ? 'Gagal' : 'Belum Dicek';
+      const statusDisplay = statusEnum === 'BERHASIL' ? 'Successful' : statusEnum === 'GAGAL' ? 'Failed' : 'Pending';
       statusCell.setValue(statusDisplay).setFontWeight('bold').setHorizontalAlignment('center');
       if (statusEnum === 'BERHASIL') {
         statusCell.setBackground('#dcfce7').setFontColor('#15803d');
@@ -328,14 +331,14 @@ function saveSelectedRow() {
       // Update Tester Name (Column D / 4)
       sheet.getRange(rowIndex, 4).setValue(testerName || '');
 
-      ui.alert(`✅ Success: Data situs #${no} ("${name}") tanggal ${rowTargetDate} berhasil disimpan dan diperbarui ke Web App & Database!`);
+      ui.alert(`✅ Success: Site data #${no} ("${name}") for date ${rowTargetDate} saved & synced to Web App & Database!`);
     } else if (responseCode === 409) {
-      ui.alert(`⚠️ Version Conflict: Data sudah diubah di Web App. Silakan klik "📌 QA Sync -> 🔄 Synchronize" terlebih dahulu.`);
+      ui.alert(`⚠️ Version Conflict: Data has been modified in the Web App. Please click "📌 QA Sync -> 🔄 Synchronize" first.`);
     } else {
       ui.alert(`❌ Save Failed (${responseCode}): ${json.message || responseText}`);
     }
   } catch (err) {
-    ui.alert(`❌ Connection Error: Tidak dapat menghubungi server API backend. Detail: ${err.message}`);
+    ui.alert(`❌ Connection Error: Unable to connect to backend API server. Details: ${err.message}`);
   }
 }
 
@@ -374,7 +377,7 @@ function refreshAllData() {
       try {
         json = JSON.parse(text);
       } catch (e) {
-        ui.alert('❌ Respon dari server bukan JSON valid. Mohon pastikan Web App berjalan normal.');
+        ui.alert('❌ Server response is not valid JSON. Please ensure Web App is running normally.');
         return;
       }
       if (json.error) {
@@ -383,16 +386,16 @@ function refreshAllData() {
       }
       sitesData = Array.isArray(json) ? json : (json.data !== undefined ? json.data : []);
     } else {
-      ui.alert(`❌ Gagal mengambil data situs dari Web App.\nHTTP Status Code: ${responseCode}\nPastikan Vercel Backend active & terhubung ke Database.`);
+      ui.alert(`❌ Failed to fetch site data from Web App.\nHTTP Status Code: ${responseCode}\nEnsure Vercel Backend is active & connected to Database.`);
       return;
     }
   } catch (err) {
-    ui.alert('❌ Gagal mengambil data situs dari Web App.\nDetail: ' + err.message);
+    ui.alert('❌ Failed to fetch site data from Web App.\nDetails: ' + err.message);
     return;
   }
 
   if (!sitesData) {
-    ui.alert('❌ Gagal mengambil data dari server.');
+    ui.alert('❌ Failed to retrieve data from server.');
     return;
   }
 
@@ -418,9 +421,9 @@ function refreshAllData() {
 
       if (name) {
         let statusEnum = 'BELUM_DICEK';
-        if (statusInput === 'BERHASIL' || statusInput === 'SUCCESS' || statusInput === 'PASSED' || statusInput === 'SELESAI') {
+        if (statusInput === 'SUCCESSFUL' || statusInput === 'BERHASIL' || statusInput === 'SUCCESS' || statusInput === 'PASSED' || statusInput === 'SELESAI') {
           statusEnum = 'BERHASIL';
-        } else if (statusInput === 'GAGAL' || statusInput === 'FAILED' || statusInput === 'FAIL') {
+        } else if (statusInput === 'FAILED' || statusInput === 'GAGAL' || statusInput === 'FAIL') {
           statusEnum = 'GAGAL';
         }
 
@@ -460,7 +463,7 @@ function refreshAllData() {
   // Process daily master entries for all active dates from site start date up to Today / targetEndDate
   sitesData = ensureDailyMasterSites(sitesData);
 
-  // Sort data strictly by Date (newest first), then by Nama Situs alphabetically
+  // Sort data strictly by Date (newest first), then by Site Name alphabetically
   sitesData.sort(function(a, b) {
     const dateA = getSiteDateStr(a);
     const dateB = getSiteDateStr(b);
@@ -475,7 +478,7 @@ function refreshAllData() {
   mainSheet.getRange(1, 1, mainSheet.getMaxRows(), mainSheet.getMaxColumns()).clearDataValidations();
 
   // Header Row (Row 1): 6 Visible Columns + 2 Hidden System Columns
-  const headers = [['No', 'Nama Situs', 'Link Situs', 'Nama Tester', 'Tanggal', 'Status / Aksi', 'ID', 'Version']];
+  const headers = [['No', 'Site Name', 'Site Link', 'Tester Name', 'Date', 'Status / Action', 'ID', 'Version']];
   const headerRange = mainSheet.getRange(1, 1, 1, 8);
   headerRange.setValues(headers)
     .setFontWeight('bold')
@@ -493,10 +496,10 @@ function refreshAllData() {
   sitesData.forEach(function(site, index) {
     const dateStr = getSiteDateStr(site);
     const statusText = (site.status === 'BERHASIL' || site.status === 'SELESAI')
-      ? 'Berhasil'
+      ? 'Successful'
       : (site.status === 'GAGAL' || site.status === 'GAGAL_ADA_REPORT')
-      ? 'Gagal'
-      : 'Belum Dicek';
+      ? 'Failed'
+      : 'Pending';
 
     const rawTester = site.lastTestedBy || site.currentTester || '';
     const testerDisplay = (rawTester && rawTester !== '-' && rawTester !== 'Google Sheets User') ? rawTester : '';
@@ -521,7 +524,7 @@ function refreshAllData() {
 
     // Prepare Data Validation Rule for Status Dropdown
     const statusRule = SpreadsheetApp.newDataValidation()
-      .requireValueInList(['Berhasil', 'Gagal', 'Belum Dicek'], true)
+      .requireValueInList(['Successful', 'Failed', 'Pending'], true)
       .setAllowInvalid(false)
       .build();
 
@@ -535,18 +538,18 @@ function refreshAllData() {
 
       // Column Formatting
       mainSheet.getRange(rIdx, 1).setFontColor('#64748b').setHorizontalAlignment('center');                     // No
-      mainSheet.getRange(rIdx, 2).setFontWeight('bold').setFontColor('#0f172a').setHorizontalAlignment('left'); // Nama Situs
-      mainSheet.getRange(rIdx, 3).setFontColor('#2563eb').setHorizontalAlignment('left');                       // Link Situs
-      mainSheet.getRange(rIdx, 4).setFontColor('#334155').setHorizontalAlignment('center');                     // Nama Tester
-      mainSheet.getRange(rIdx, 5).setFontColor('#475569').setHorizontalAlignment('center');                     // Tanggal
+      mainSheet.getRange(rIdx, 2).setFontWeight('bold').setFontColor('#0f172a').setHorizontalAlignment('left'); // Site Name
+      mainSheet.getRange(rIdx, 3).setFontColor('#2563eb').setHorizontalAlignment('left');                       // Site Link
+      mainSheet.getRange(rIdx, 4).setFontColor('#334155').setHorizontalAlignment('center');                     // Tester Name
+      mainSheet.getRange(rIdx, 5).setFontColor('#475569').setHorizontalAlignment('center');                     // Date
 
       // Status Badge (Col F / 6)
       const statusCell = mainSheet.getRange(rIdx, 6);
       statusCell.setDataValidation(statusRule);
       statusCell.setFontWeight('bold').setHorizontalAlignment('center');
-      if (statusText === 'Berhasil') {
+      if (statusText === 'Successful') {
         statusCell.setBackground('#dcfce7').setFontColor('#15803d');
-      } else if (statusText === 'Gagal') {
+      } else if (statusText === 'Failed') {
         statusCell.setBackground('#fee2e2').setFontColor('#b91c1c');
       } else {
         statusCell.setBackground('#fef3c7').setFontColor('#b45309');
@@ -569,11 +572,11 @@ function refreshAllData() {
   mainSheet.setColumnWidth(1, 50); // No
 
   const minWidths = {
-    2: 180, // Nama Situs
-    3: 250, // Link Situs
-    4: 160, // Nama Tester
-    5: 130, // Tanggal
-    6: 140, // Status / Aksi
+    2: 180, // Site Name
+    3: 250, // Site Link
+    4: 160, // Tester Name
+    5: 130, // Date
+    6: 140, // Status / Action
   };
 
   for (let c = 2; c <= 6; c++) {
@@ -594,13 +597,13 @@ function refreshAllData() {
     }
   }
 
-  ui.alert(`✅ Synchronization Complete!\nSpreadsheet telah diperbarui dengan 6 kolom (termasuk No) & urut berdasarkan Tanggal.`);
+  ui.alert(`✅ Synchronization Complete!\nSpreadsheet has been updated with 6 columns & sorted by Date.`);
 }
 
 function formatSystemFields() {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
   sheet.getRange("1:1").setFontWeight("bold").setBackground("#1e293b").setFontColor("#ffffff");
-  SpreadsheetApp.getUi().alert('🔒 Formatting header selesai.');
+  SpreadsheetApp.getUi().alert('🔒 Header formatting complete.');
 }
 
 /**
@@ -612,7 +615,7 @@ function deleteSelectedRow() {
   const range = sheet.getActiveRange();
 
   if (!range) {
-    ui.alert('⚠️ Silakan pilih baris data yang ingin dihapus.');
+    ui.alert('⚠️ Please select a data row to delete.');
     return;
   }
 
@@ -620,7 +623,7 @@ function deleteSelectedRow() {
   const numRows = range.getNumRows();
 
   if (startRow <= 1) {
-    ui.alert('⚠️ Silakan pilih baris data (bukan baris header).');
+    ui.alert('⚠️ Please select a data row (not the header row).');
     return;
   }
 
@@ -638,14 +641,14 @@ function deleteSelectedRow() {
   }
 
   if (itemsToDelete.length === 0) {
-    ui.alert('⚠️ Tidak ada data situs yang valid pada baris terpilih.');
+    ui.alert('⚠️ No valid site data found on selected row(s).');
     return;
   }
 
   const namesList = itemsToDelete.map(function(item) { return item.name || item.id; }).join(', ');
   const confirmResponse = ui.alert(
-    '❓ Konfirmasi Penghapusan Situs',
-    `Apakah Anda yakin ingin menghapus ${itemsToDelete.length} situs terpilih ("${namesList}") dari Web App, Database, dan Spreadsheet?\n\nData yang dihapus tidak dapat dikembalikan.`,
+    '❓ Confirm Site Deletion',
+    `Are you sure you want to delete ${itemsToDelete.length} selected site(s) ("${namesList}") from Web App, Database, and Spreadsheet?\n\nDeleted data cannot be recovered.`,
     ui.ButtonSet.YES_NO
   );
 
@@ -692,7 +695,7 @@ function deleteSelectedRow() {
   });
 
   refreshAllData();
-  ui.alert(`✅ Success: ${deletedCount} situs berhasil dihapus dari Web App, Database, dan Spreadsheet!`);
+  ui.alert(`✅ Success: ${deletedCount} site(s) successfully deleted from Web App, Database, and Spreadsheet!`);
 }
 
 /**

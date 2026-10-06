@@ -40,14 +40,14 @@ export default function SpreadsheetModal({ sites, onClose }: SpreadsheetModalPro
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="text-base font-bold text-white tracking-tight">
-                  Pengaturan &amp; Pratinjau Google Spreadsheet
+                  Google Spreadsheet Settings &amp; Preview
                 </h3>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                  ⚡ Sinkron Realtime
+                  ⚡ Realtime Sync
                 </span>
               </div>
               <p className="text-[11px] text-slate-400">
-                Ubah tautan URL Google Spreadsheet target atau pratinjau data rekap QA.
+                Change target Google Spreadsheet URL link or preview QA summary data.
               </p>
             </div>
           </div>
@@ -57,7 +57,7 @@ export default function SpreadsheetModal({ sites, onClose }: SpreadsheetModalPro
             <button
               onClick={() => exportSitesToCSV(sites)}
               className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 shadow-md shadow-emerald-600/20"
-              title="Download Data Spreadsheet sebagai File CSV / Excel"
+              title="Download Spreadsheet Data as CSV / Excel File"
             >
               <span>📥 Download CSV</span>
             </button>
@@ -68,13 +68,13 @@ export default function SpreadsheetModal({ sites, onClose }: SpreadsheetModalPro
               rel="noopener noreferrer"
               className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-lg shadow-md shadow-blue-600/20 transition-all flex items-center gap-1"
             >
-              <span>🔗 Buka Spreadsheet ↗</span>
+              <span>🔗 Open Spreadsheet ↗</span>
             </a>
 
             <button
               onClick={onClose}
               className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white grid place-items-center text-sm font-bold transition-colors ml-1"
-              title="Tutup Modal"
+              title="Close Modal"
             >
               ✕
             </button>
@@ -86,11 +86,11 @@ export default function SpreadsheetModal({ sites, onClose }: SpreadsheetModalPro
           <div className="flex items-center gap-4 text-[11px] font-medium text-slate-300 shrink-0">
             <span className="hover:text-white cursor-pointer transition-colors">File</span>
             <span className="hover:text-white cursor-pointer transition-colors">Edit</span>
-            <span className="hover:text-white cursor-pointer transition-colors">Tampilan</span>
+            <span className="hover:text-white cursor-pointer transition-colors">View</span>
             <span className="hover:text-white cursor-pointer transition-colors">Format</span>
             <span className="hover:text-white cursor-pointer transition-colors">Data</span>
-            <span className="hover:text-white cursor-pointer transition-colors">Alat</span>
-            <span className="hover:text-white cursor-pointer transition-colors">Bantuan</span>
+            <span className="hover:text-white cursor-pointer transition-colors">Tools</span>
+            <span className="hover:text-white cursor-pointer transition-colors">Help</span>
           </div>
 
           <div className="flex items-center gap-2 text-[11px] shrink-0">
@@ -102,7 +102,7 @@ export default function SpreadsheetModal({ sites, onClose }: SpreadsheetModalPro
                   : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
               }`}
             >
-              🟢 Grid Spreadsheet Web ({sites.length} Rows)
+              🟢 Web Spreadsheet Grid ({sites.length} Rows)
             </button>
             <button
               onClick={() => setActiveTab('embed')}
@@ -127,7 +127,7 @@ export default function SpreadsheetModal({ sites, onClose }: SpreadsheetModalPro
           </div>
           <div className="h-4 w-px bg-slate-800 mx-1 shrink-0"></div>
           <div className="font-mono text-[11px] text-slate-300 truncate">
-            =QA_SPREADSHEET_SYNC(Total: {totalSites} Situs | 🟢 {berhasilCount} | 🔴 {gagalCount} | ⚪ {belumDicekCount})
+            =QA_SPREADSHEET_SYNC(Total: {totalSites} Sites | 🟢 {berhasilCount} | 🔴 {gagalCount} | ⚪ {belumDicekCount})
           </div>
         </div>
 
@@ -155,19 +155,19 @@ export default function SpreadsheetModal({ sites, onClose }: SpreadsheetModalPro
                         1
                       </th>
                       <th className="py-2.5 px-3 border-r border-slate-800 bg-slate-900/90 text-blue-300 text-center">
-                        Nama Situs
+                        Site Name
                       </th>
                       <th className="py-2.5 px-3 border-r border-slate-800 bg-slate-900/90 text-blue-300 text-center">
-                        Link Target URL
+                        Target Link URL
                       </th>
                       <th className="py-2.5 px-3 border-r border-slate-800 bg-slate-900/90 text-blue-300 text-center">
-                        Status Pengujian
+                        Test Status
                       </th>
                       <th className="py-2.5 px-3 border-r border-slate-800 bg-slate-900/90 text-blue-300 text-center">
-                        Nama Tester
+                        Tester Name
                       </th>
                       <th className="py-2.5 px-3 bg-slate-900/90 text-blue-300 text-center">
-                        Waktu Testing
+                        Test Time
                       </th>
                     </tr>
                   </thead>
@@ -175,7 +175,7 @@ export default function SpreadsheetModal({ sites, onClose }: SpreadsheetModalPro
                     {sites.length === 0 ? (
                       <tr>
                         <td colSpan={6} className="py-12 text-center text-slate-500 text-xs">
-                          Belum ada data situs yang tersedia di web.
+                          No site data available on the web.
                         </td>
                       </tr>
                     ) : (
@@ -191,7 +191,7 @@ export default function SpreadsheetModal({ sites, onClose }: SpreadsheetModalPro
                               {rowIndex}
                             </td>
 
-                            {/* Column A: Nama Situs */}
+                            {/* Column A: Site Name */}
                             <td className="py-2.5 px-3 border-r border-slate-800 font-semibold text-white">
                               {site.name}
                             </td>
@@ -208,24 +208,24 @@ export default function SpreadsheetModal({ sites, onClose }: SpreadsheetModalPro
                               </a>
                             </td>
 
-                            {/* Column C: Status Pengujian */}
+                            {/* Column C: Test Status */}
                             <td className="py-2.5 px-3 border-r border-slate-800">
                               {site.status === 'BERHASIL' ? (
                                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
-                                  🟢 Berhasil
+                                  🟢 Successful
                                 </span>
                               ) : site.status === 'GAGAL' ? (
                                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-500/20 text-rose-400 border border-rose-500/40">
-                                  🔴 Gagal
+                                  🔴 Failed
                                 </span>
                               ) : (
                                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-800 text-slate-400 border border-slate-700">
-                                  ⚪ Belum Dicek
+                                  ⚪ Pending
                                 </span>
                               )}
                             </td>
 
-                            {/* Column D: Nama Tester */}
+                            {/* Column D: Tester Name */}
                             <td className="py-2.5 px-3 border-r border-slate-800 font-medium text-slate-300">
                               {site.lastTestedBy ? (
                                 <span className="text-slate-200">{site.lastTestedBy}</span>
@@ -234,7 +234,7 @@ export default function SpreadsheetModal({ sites, onClose }: SpreadsheetModalPro
                               )}
                             </td>
 
-                            {/* Column E: Waktu Testing */}
+                            {/* Column E: Test Time */}
                             <td className="py-2.5 px-3 font-mono text-[11px] text-slate-400">
                               {site.lastTestedAt ? (
                                 site.lastTestedAt
@@ -266,17 +266,17 @@ export default function SpreadsheetModal({ sites, onClose }: SpreadsheetModalPro
           <div className="flex items-center gap-2">
             <div className="px-3 py-1 bg-slate-900 border border-slate-800 rounded-lg text-emerald-400 font-bold text-xs flex items-center gap-1.5 shadow-sm">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span>Sheet1: Data Web QA</span>
+              <span>Sheet1: Web QA Data</span>
             </div>
             <span className="text-[11px] text-slate-500">
-              {totalSites} baris data disinkronkan langsung dari database web.
+              {totalSites} data rows synced directly from web database.
             </span>
           </div>
 
           <div className="flex items-center gap-4 text-[11px] font-mono text-slate-400">
-            <span>Berhasil: <strong className="text-emerald-400">{berhasilCount}</strong></span>
-            <span>Gagal: <strong className="text-rose-400">{gagalCount}</strong></span>
-            <span>Belum Dicek: <strong className="text-slate-300">{belumDicekCount}</strong></span>
+            <span>Successful: <strong className="text-emerald-400">{berhasilCount}</strong></span>
+            <span>Failed: <strong className="text-rose-400">{gagalCount}</strong></span>
+            <span>Pending: <strong className="text-slate-300">{belumDicekCount}</strong></span>
           </div>
         </div>
       </div>

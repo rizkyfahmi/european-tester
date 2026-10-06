@@ -174,7 +174,7 @@ export default function AuthForm({ initialMode = 'login', onLoginSuccess }: Auth
         router.push(role === 'admin' ? '/dashboard-admin' : '/dashboard-tester');
       }
     } else {
-      setErrorMessage('Username/Email atau Password salah.');
+      setErrorMessage('Incorrect Username/Email or Password.');
     }
 
     setLoading(false);
@@ -191,12 +191,12 @@ export default function AuthForm({ initialMode = 'login', onLoginSuccess }: Auth
     const cleanUsernameLower = cleanUsername.toLowerCase();
 
     if (!cleanUsername || !cleanEmail || !cleanPassword) {
-      setErrorMessage('Username, Email, dan Password wajib diisi.');
+      setErrorMessage('Username, Email, and Password are required.');
       return;
     }
 
     if (cleanPassword !== confirmPassword.trim()) {
-      setErrorMessage('Konfirmasi password tidak cocok.');
+      setErrorMessage('Password confirmation does not match.');
       return;
     }
 
@@ -206,7 +206,7 @@ export default function AuthForm({ initialMode = 'login', onLoginSuccess }: Auth
       (u) => u.username.toLowerCase() === cleanUsernameLower || u.email.toLowerCase() === cleanUsernameLower
     );
     if (existingUsername) {
-      setErrorMessage(`Username "${cleanUsername}" sudah digunakan oleh akun lain.`);
+      setErrorMessage(`Username "${cleanUsername}" is already taken by another account.`);
       return;
     }
 
@@ -214,7 +214,7 @@ export default function AuthForm({ initialMode = 'login', onLoginSuccess }: Auth
       (u) => u.email.toLowerCase() === cleanEmail || u.username.toLowerCase() === cleanEmail
     );
     if (existingEmail) {
-      setErrorMessage(`Email "${cleanEmail}" sudah terdaftar dalam sistem.`);
+      setErrorMessage(`Email "${cleanEmail}" is already registered in the system.`);
       return;
     }
 
@@ -241,14 +241,14 @@ export default function AuthForm({ initialMode = 'login', onLoginSuccess }: Auth
 
       if (res.ok) {
         saveRegisteredUser(newUser);
-        setSuccessMessage(`Registrasi berhasil untuk ${cleanEmail}! Silakan masuk.`);
+        setSuccessMessage(`Registration successful for ${cleanEmail}! Please log in.`);
         setMode('login');
         setEmailOrUser(cleanEmail);
         setPassword(cleanPassword);
         setLoading(false);
         return;
       } else {
-        setErrorMessage(data.message || 'Username atau Email sudah terdaftar.');
+        setErrorMessage(data.message || 'Username or Email is already registered.');
         setLoading(false);
         return;
       }
@@ -257,7 +257,7 @@ export default function AuthForm({ initialMode = 'login', onLoginSuccess }: Auth
     }
 
     saveRegisteredUser(newUser);
-    setSuccessMessage(`Registrasi berhasil untuk ${cleanEmail}! Silakan masuk.`);
+    setSuccessMessage(`Registration successful for ${cleanEmail}! Please log in.`);
     setMode('login');
     setEmailOrUser(cleanEmail);
     setPassword(cleanPassword);
@@ -280,10 +280,10 @@ export default function AuthForm({ initialMode = 'login', onLoginSuccess }: Auth
         {/* Header */}
         <header className="text-left mb-6">
           <h1 className="text-3xl font-bold text-[#FFF2DF] tracking-wide drop-shadow-sm">
-            {mode === 'login' ? 'Log in' : 'Daftar Akun'}
+            {mode === 'login' ? 'Log in' : 'Register Account'}
           </h1>
           <p className="text-xs text-[#FFF2DF]/90 mt-1.5 font-semibold tracking-wide">
-            {mode === 'login' ? 'Silakan masuk ke akun Anda' : 'Buat akun baru Anda untuk melanjutkan'}
+            {mode === 'login' ? 'Please log in to your account' : 'Create your new account to continue'}
           </p>
         </header>
 
@@ -519,7 +519,7 @@ export default function AuthForm({ initialMode = 'login', onLoginSuccess }: Auth
                     : 'top-3.5 text-sm font-medium text-[#8C6E63]/80 peer-focus:top-1.5 peer-focus:text-[11px] peer-focus:font-bold peer-focus:text-[#3E2522] peer-[:not(:placeholder-shown)]:top-1.5 peer-[:not(:placeholder-shown)]:text-[11px] peer-[:not(:placeholder-shown)]:font-bold peer-[:not(:placeholder-shown)]:text-[#3E2522] peer-autofill:top-1.5 peer-autofill:text-[11px] peer-autofill:font-bold peer-autofill:text-[#3E2522]'
                 }`}
               >
-                Konfirmasi Password
+                Confirm Password
               </label>
 
               <button
@@ -560,7 +560,7 @@ export default function AuthForm({ initialMode = 'login', onLoginSuccess }: Auth
               {loading ? (
                 <span className="w-4 h-4 border-2 border-[#3E2522]/30 border-t-[#3E2522] rounded-full animate-spin" />
               ) : (
-                'Daftar Sekarang'
+                'Register Now'
               )}
             </button>
           </form>
@@ -570,24 +570,24 @@ export default function AuthForm({ initialMode = 'login', onLoginSuccess }: Auth
         <p className="text-xs text-center text-[#FFF2DF] mt-6 font-medium">
           {mode === 'login' ? (
             <>
-              Belum punya akun?{' '}
+              Don&apos;t have an account?{' '}
               <button
                 type="button"
                 onClick={() => switchMode('register')}
                 className="text-[#FFE0B2] font-bold hover:underline hover:text-[#ffffff] transition-all ml-0.5 cursor-pointer focus:outline-none"
               >
-                Daftar sekarang
+                Register now
               </button>
             </>
           ) : (
             <>
-              Sudah punya akun?{' '}
+              Already have an account?{' '}
               <button
                 type="button"
                 onClick={() => switchMode('login')}
                 className="text-[#FFE0B2] font-bold hover:underline hover:text-[#ffffff] transition-all ml-0.5 cursor-pointer focus:outline-none"
               >
-                Masuk sekarang
+                Log in now
               </button>
             </>
           )}

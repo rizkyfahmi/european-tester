@@ -725,30 +725,30 @@ export function exportSitesToCSV(sites: SiteItem[]): void {
 
   const getMonthNameKey = (dateStr: string): string => {
     const match = dateStr.match(/^(\d{4})-(\d{2})/);
-    if (!match) return 'Lainnya';
+    if (!match) return 'Other';
     const year = match[1];
     const monthNum = parseInt(match[2], 10);
-    const monthsIndo = [
-      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+    const monthsEn = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
     ];
-    return `${monthsIndo[monthNum - 1] || match[2]} ${year}`;
+    return `${monthsEn[monthNum - 1] || match[2]} ${year}`;
   };
 
-  const formatDateIndo = (dateStr: string): string => {
+  const formatDateEn = (dateStr: string): string => {
     const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
     if (!match) return dateStr;
     const year = match[1];
     const monthNum = parseInt(match[2], 10);
     const day = parseInt(match[3], 10);
-    const monthsIndo = [
-      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+    const monthsEn = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
     ];
-    return `${day} ${monthsIndo[monthNum - 1] || match[2]} ${year}`;
+    return `${day} ${monthsEn[monthNum - 1] || match[2]} ${year}`;
   };
 
-  const headers = ['Nomor', 'Nama Situs', 'Link Target', 'Status Pengujian', 'Nama Tester', 'Waktu Testing'];
+  const headers = ['No', 'Site Name', 'Target Link', 'Test Status', 'Tester Name', 'Test Date'];
   const formattedRows: string[][] = [headers];
 
   const groupedByMonth = sites.reduce((acc, site) => {
@@ -766,7 +766,7 @@ export function exportSitesToCSV(sites: SiteItem[]): void {
     const sampleDate = monthSites[0] ? getSiteDateStr(monthSites[0]) : `${mKey}-01`;
     const monthLabel = getMonthNameKey(sampleDate);
 
-    formattedRows.push([`"${monthLabel} (${monthSites.length} situs)"`, '""', '""', '""', '""', '""']);
+    formattedRows.push([`"${monthLabel} (${monthSites.length} sites)"`, '""', '""', '""', '""', '""']);
 
     const groupedByDate = monthSites.reduce((acc, site) => {
       const dKey = getSiteDateStr(site);
@@ -779,7 +779,7 @@ export function exportSitesToCSV(sites: SiteItem[]): void {
 
     dateKeys.forEach((dKey) => {
       const dateSites = groupedByDate[dKey];
-      formattedRows.push([`"${formatDateIndo(dKey)} (${dateSites.length} situs)"`, '""', '""', '""', '""', '""']);
+      formattedRows.push([`"${formatDateEn(dKey)} (${dateSites.length} sites)"`, '""', '""', '""', '""', '""']);
 
       dateSites.forEach((site) => {
         const monthNo = monthSites.indexOf(site) + 1;
@@ -787,7 +787,7 @@ export function exportSitesToCSV(sites: SiteItem[]): void {
           `"${monthNo}"`,
           `"${(site.name || '').replace(/"/g, '""')}"`,
           `"${(site.url || '').replace(/"/g, '""')}"`,
-          `"${site.status === 'BERHASIL' ? 'Berhasil' : site.status === 'GAGAL' ? 'Gagal' : 'Belum Dicek'}"`,
+          `"${site.status === 'BERHASIL' ? 'Successful' : site.status === 'GAGAL' ? 'Failed' : 'Pending'}"`,
           `"${(site.lastTestedBy || '-').replace(/"/g, '""')}"`,
           `"${(site.lastTestedAt || '-').replace(/"/g, '""')}"`,
         ]);
@@ -800,7 +800,7 @@ export function exportSitesToCSV(sites: SiteItem[]): void {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.setAttribute('href', url);
-  link.setAttribute('download', `Rekap_Spreadsheet_QA_${new Date().toISOString().slice(0, 10)}.csv`);
+  link.setAttribute('download', `QA_Spreadsheet_Report_${new Date().toISOString().slice(0, 10)}.csv`);
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);

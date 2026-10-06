@@ -148,7 +148,7 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
   const spreadsheetUrl = getSpreadsheetUrl();
 
   // Date Formatting Helper
-  const formatDateIndo = (dateString: string): string => {
+  const formatDateEn = (dateString: string): string => {
     if (!dateString) return '';
     const parts = dateString.split('-');
     if (parts.length !== 3) return dateString;
@@ -157,12 +157,12 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
     const month = parseInt(parts[1], 10);
     const day = parseInt(parts[2], 10);
 
-    const namaBulan = [
-      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December',
     ];
 
-    return `${day} ${namaBulan[month - 1] || ''} ${year}`;
+    return `${day} ${monthNames[month - 1] || ''} ${year}`;
   };
 
   const getSiteDate = (site: SiteItem): string => {
@@ -190,19 +190,19 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
 
   const getYearMonthKey = (dateStr: string): string => {
     const match = dateStr.match(/^(\d{4}-\d{2})/);
-    return match ? match[1] : 'lainnya';
+    return match ? match[1] : 'other';
   };
 
   const getMonthNameKey = (dateStr: string): string => {
     const match = dateStr.match(/^(\d{4})-(\d{2})/);
-    if (!match) return 'Lainnya';
+    if (!match) return 'Other';
     const year = match[1];
     const monthNum = parseInt(match[2], 10);
-    const namaBulan = [
-      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December',
     ];
-    return `${namaBulan[monthNum - 1] || match[2]} ${year}`;
+    return `${monthNames[monthNum - 1] || match[2]} ${year}`;
   };
 
   // Filter Logic
@@ -281,8 +281,8 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
 
     if (!testerName.trim()) {
       setCustomAlert({
-        title: 'Nama Tester Wajib Diisi',
-        message: 'Silakan isi Nama Tester Anda sebelum menyimpan hasil pengujian.',
+        title: 'Tester Name Required',
+        message: 'Please enter your Tester Name before saving test results.',
       });
       return;
     }
@@ -302,14 +302,14 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
       await loadData();
       setConfirmTestSubmission(null);
       setCustomAlert({
-        title: 'Hasil Pengujian Berhasil Disimpan',
-        message: `Hasil pengujian untuk situs "${site.name}" berhasil disimpan sebagai ${resultStatus === 'BERHASIL' ? 'Berhasil' : 'Gagal'} oleh ${finalTester}.`,
+        title: 'Test Result Saved Successfully',
+        message: `Test result for site "${site.name}" successfully saved as ${resultStatus === 'BERHASIL' ? 'Successful' : 'Failed'} by ${finalTester}.`,
       });
     } catch (err) {
       console.error('Error submitting test result:', err);
       setCustomAlert({
-        title: 'Gagal Menyimpan',
-        message: 'Terjadi kesalahan saat menyimpan hasil pengujian.',
+        title: 'Failed to Save',
+        message: 'An error occurred while saving the test result.',
       });
     } finally {
       setSubmittingSiteId(null);
@@ -350,15 +350,15 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
       setIsAddingSite(false);
 
       setCustomAlert({
-        title: 'Berhasil Disimpan',
-        message: `Situs "${siteNameTrim}" berhasil ditambahkan ke daftar pengujian mulai tanggal ${formatDateIndo(targetDate)}!`,
+        title: 'Saved Successfully',
+        message: `Site "${siteNameTrim}" added to test list starting from ${formatDateEn(targetDate)}!`,
       });
     } catch (err: any) {
       console.error('Error adding site:', err);
       setIsAddingSite(false);
       setCustomAlert({
-        title: 'Gagal Menambah Situs',
-        message: err?.message || 'Terjadi kesalahan saat menambahkan situs ke server.',
+        title: 'Failed to Add Site',
+        message: err?.message || 'An error occurred while adding the site to the server.',
       });
     }
   };
@@ -390,8 +390,8 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
       setIsDeletingSite(false);
 
       setCustomAlert({
-        title: 'Berhasil Dihapus',
-        message: `Situs "${confirmDeleteSite.name}" berhasil dihapus mulai tanggal ${formatDateIndo(deleteDateToUse)}. Data rekap sebelum tanggal tersebut tetap tersimpan.`,
+        title: 'Deleted Successfully',
+        message: `Site "${confirmDeleteSite.name}" deleted starting from ${formatDateEn(deleteDateToUse)}. Recap data before this date remains saved.`,
       });
     } catch (err) {
       console.error('Error deleting site:', err);
@@ -437,8 +437,8 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
       setIsDeletingSite(false);
 
       setCustomAlert({
-        title: 'Berhasil Dihapus',
-        message: `${idsToDelete.length} situs terpilih berhasil dihapus dari daftar pengujian.`,
+        title: 'Deleted Successfully',
+        message: `${idsToDelete.length} selected sites deleted from test list.`,
       });
     } catch (err) {
       console.error('Error bulk deleting sites:', err);
@@ -454,26 +454,26 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
           <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
           </svg>
-          <span>Link berhasil disalin!</span>
+          <span>Link copied successfully!</span>
         </div>
       )}
 
       {/* STATS CARDS (4 CARDS) */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         <div className="p-3 sm:p-5 rounded-2xl bg-[#FFF8EE]/10 backdrop-blur-xl border border-[#FFE0B2]/30 shadow-lg flex flex-col justify-between">
-          <span className="text-[10px] sm:text-xs font-medium text-[#FFE0B2]/70 uppercase tracking-wider">Total Situs</span>
+          <span className="text-[10px] sm:text-xs font-medium text-[#FFE0B2]/70 uppercase tracking-wider">TOTAL SITES</span>
           <span className="text-xl sm:text-3xl font-extrabold text-[#FFF8EE] mt-1 sm:mt-2">{totalSites}</span>
         </div>
         <div className="p-3 sm:p-5 rounded-2xl bg-[#FFF8EE]/10 backdrop-blur-xl border border-[#FFE0B2]/30 shadow-lg flex flex-col justify-between">
-          <span className="text-[10px] sm:text-xs font-medium text-[#FFE0B2]/70 uppercase tracking-wider">Belum Dicek</span>
+          <span className="text-[10px] sm:text-xs font-medium text-[#FFE0B2]/70 uppercase tracking-wider">PENDING CHECK</span>
           <span className="text-xl sm:text-3xl font-extrabold text-[#FFF8EE] mt-1 sm:mt-2">{belumDicekCount}</span>
         </div>
         <div className="p-3 sm:p-5 rounded-2xl bg-[#FFF8EE]/10 backdrop-blur-xl border border-[#FFE0B2]/30 shadow-lg flex flex-col justify-between">
-          <span className="text-[10px] sm:text-xs font-medium text-[#FFE0B2]/70 uppercase tracking-wider">Berhasil</span>
+          <span className="text-[10px] sm:text-xs font-medium text-[#FFE0B2]/70 uppercase tracking-wider">SUCCESSFUL</span>
           <span className="text-xl sm:text-3xl font-extrabold text-[#FFF8EE] mt-1 sm:mt-2">{berhasilCount}</span>
         </div>
         <div className="p-3 sm:p-5 rounded-2xl bg-[#FFF8EE]/10 backdrop-blur-xl border border-[#FFE0B2]/30 shadow-lg flex flex-col justify-between">
-          <span className="text-[10px] sm:text-xs font-medium text-[#FFE0B2]/70 uppercase tracking-wider">Gagal</span>
+          <span className="text-[10px] sm:text-xs font-medium text-[#FFE0B2]/70 uppercase tracking-wider">FAILED</span>
           <span className="text-xl sm:text-3xl font-extrabold text-[#FFF8EE] mt-1 sm:mt-2">{gagalCount}</span>
         </div>
       </div>
@@ -503,8 +503,8 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
           {/* Header Top Row: Title & Action Buttons */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <h2 className="text-base sm:text-xl font-bold text-[#FFF8EE] tracking-wide">
-              {userRole === 'admin' ? 'Rekap Pengujian Situs' : 'Daftar Pengujian Situs'}
-              {dateFilterVal ? ` (${formatDateIndo(dateFilterVal)})` : ''}
+              {userRole === 'admin' ? 'Site Testing Summary' : 'Site Testing List'}
+              {dateFilterVal ? ` (${formatDateEn(dateFilterVal)})` : ''}
             </h2>
 
             {/* Action Buttons */}
@@ -524,7 +524,7 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                       </svg>
-                      <span>Batal</span>
+                      <span>Cancel</span>
                     </button>
 
                     <button
@@ -546,8 +546,8 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
                       </svg>
                       <span>
                         {selectedSiteIds.length > 0
-                          ? `Hapus (${selectedSiteIds.length})`
-                          : 'Hapus'}
+                          ? `Delete (${selectedSiteIds.length})`
+                          : 'Delete'}
                       </span>
                     </button>
                   </>
@@ -560,7 +560,7 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
                     <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                     </svg>
-                    <span>Hapus</span>
+                    <span>Delete</span>
                   </button>
                 )
               )}
@@ -578,7 +578,7 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
                   </svg>
-                  <span>Tambah Situs</span>
+                  <span>Add Site</span>
                 </button>
               )}
             </div>
@@ -621,10 +621,10 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
               }}
               className="col-span-2 sm:col-span-1 md:w-auto appearance-none pl-3.5 pr-8 py-2 text-xs rounded-full bg-[#1a0f0b]/80 border border-[#FFE0B2]/30 text-[#FFF8EE] focus:outline-none focus:border-[#FFE0B2] cursor-pointer font-medium"
             >
-              <option value="Semua" className="bg-[#1a0f0b] text-[#FFF8EE]">Semua Status</option>
-              <option value="Berhasil" className="bg-[#1a0f0b] text-[#FFF8EE]">Berhasil</option>
-              <option value="Belum Dicek" className="bg-[#1a0f0b] text-[#FFF8EE]">Belum Dicek</option>
-              <option value="Gagal" className="bg-[#1a0f0b] text-[#FFF8EE]">Gagal</option>
+              <option value="Semua" className="bg-[#1a0f0b] text-[#FFF8EE]">All Statuses</option>
+              <option value="Berhasil" className="bg-[#1a0f0b] text-[#FFF8EE]">Successful</option>
+              <option value="Belum Dicek" className="bg-[#1a0f0b] text-[#FFF8EE]">Pending</option>
+              <option value="Gagal" className="bg-[#1a0f0b] text-[#FFF8EE]">Failed</option>
             </select>
 
             {/* 4. Input Search */}
@@ -633,7 +633,7 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Cari situs atau tester..."
+                placeholder="Search site or tester..."
                 className="w-full px-4 py-2 text-xs rounded-full bg-[#1a0f0b]/60 border border-[#FFE0B2]/30 text-[#FFF8EE] placeholder-[#FFE0B2]/50 focus:outline-none focus:border-[#FFE0B2] transition-colors"
               />
 
@@ -642,7 +642,7 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
                   type="button"
                   onClick={() => setSearchQuery('')}
                   className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded-full text-[#FFE0B2]/60 hover:text-[#FFF8EE] hover:bg-white/10 transition-colors cursor-pointer"
-                  title="Hapus pencarian"
+                  title="Clear search"
                 >
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
@@ -656,7 +656,7 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
         {/* RESPONSIVE DATA VIEW */}
         {sortedDateKeys.length === 0 ? (
           <div className="p-8 text-center text-[#FFE0B2]/70 text-xs bg-[#1a0f0b]/40 rounded-2xl border border-[#FFE0B2]/20">
-            Tidak ada situs yang cocok dengan filter.
+            No sites match the current filter.
           </div>
         ) : (
           <div className="space-y-6 sm:space-y-8">
@@ -673,9 +673,9 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
                     <div className="flex items-center space-x-3 border-b border-[#FFE0B2]/30 pb-2">
                       <span className="w-2.5 h-2.5 rounded-full bg-[#FFE0B2]"></span>
                       <h3 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-[#FFE0B2]">
-                        {formatDateIndo(dateStr)}
+                        {formatDateEn(dateStr)}
                       </h3>
-                      <span className="text-[11px] font-normal text-[#FFE0B2]/60">({dateSites.length} situs)</span>
+                      <span className="text-[11px] font-normal text-[#FFE0B2]/60">({dateSites.length} sites)</span>
                     </div>
 
                     {/* Grid Cards (1 col mobile, 2 col md/tablet) */}
@@ -697,10 +697,10 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
 
                         const statusText =
                           site.status === 'BERHASIL'
-                            ? 'Berhasil'
+                            ? 'Successful'
                             : site.status === 'GAGAL'
-                            ? 'Gagal'
-                            : 'Belum Dicek';
+                            ? 'Failed'
+                            : 'Pending';
 
                         return (
                           <div
@@ -752,7 +752,7 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
                                       type="button"
                                       onClick={() => handleCopyLink(site.url)}
                                       className="p-1 rounded bg-[#FFF8EE]/10 hover:bg-[#FFE0B2] hover:text-[#3E2522] text-[#FFE0B2] transition cursor-pointer shrink-0"
-                                      title="Salin Link"
+                                      title="Copy Link"
                                     >
                                       <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -781,7 +781,7 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
                                           const val = e.target.value;
                                           setRowTesterNames((prev) => ({ ...prev, [site.id]: val }));
                                         }}
-                                        placeholder="Nama Tester..."
+                                        placeholder="Tester Name..."
                                         className="w-28 px-2 py-0.5 text-xs font-semibold text-[#FFF8EE] placeholder-[#FFE0B2]/35 bg-black/40 border border-[#FFE0B2]/20 rounded-lg outline-none focus:border-amber-400"
                                       />
                                     )}
@@ -801,19 +801,19 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
                                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                     </svg>
-                                    <span>Hapus Situs</span>
+                                    <span>Delete Site</span>
                                   </button>
                                 ) : isTested ? (
                                   <div className="text-center py-1.5 rounded-xl text-xs font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
-                                    ✓ Terkunci
+                                    ✓ Locked
                                   </div>
                                 ) : isFuture ? (
                                   <div className="text-center py-1.5 rounded-xl text-xs font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30">
-                                    Belum Waktunya
+                                    Not Time Yet
                                   </div>
                                 ) : isPast ? (
                                   <div className="text-center py-1.5 rounded-xl text-xs font-semibold bg-stone-800/60 text-stone-400 border border-stone-700/50">
-                                    Terlewat
+                                    Missed
                                   </div>
                                 ) : (
                                   <div className="grid grid-cols-2 gap-2">
@@ -824,7 +824,7 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
                                       className="py-2 px-2.5 text-xs font-bold rounded-xl bg-[#00A86B] hover:bg-[#008f5b] text-white flex items-center justify-center space-x-1 shadow transition cursor-pointer disabled:opacity-50"
                                     >
                                       <span className="w-2 h-2 rounded-full bg-emerald-200"></span>
-                                      <span>Berhasil</span>
+                                      <span>Successful</span>
                                     </button>
 
                                     <button
@@ -834,7 +834,7 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
                                       className="py-2 px-2.5 text-xs font-bold rounded-xl bg-[#E60039] hover:bg-[#c40030] text-white flex items-center justify-center space-x-1 shadow transition cursor-pointer disabled:opacity-50"
                                     >
                                       <span className="w-2 h-2 rounded-full border border-white"></span>
-                                      <span>Gagal</span>
+                                      <span>Failed</span>
                                     </button>
                                   </div>
                                 )}
@@ -864,17 +864,17 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
                           }
                           onChange={() => toggleSelectAll(filteredSites)}
                           className="w-3.5 h-3.5 rounded border-[#FFE0B2]/40 bg-[#1a0f0b] text-amber-500 focus:ring-amber-400 focus:ring-offset-0 cursor-pointer"
-                          title="Pilih Semua Situs"
+                          title="Select All Sites"
                         />
                       </th>
                     )}
-                    <th className="p-3 sm:p-3.5 text-center w-12 font-bold">No.</th>
-                    <th className="p-3 sm:p-3.5 text-center font-bold">Nama Situs</th>
+                    <th className="p-3 sm:p-3.5 text-center w-12 font-bold">NO.</th>
+                    <th className="p-3 sm:p-3.5 text-center font-bold">SITE NAME</th>
                     <th className="p-3 sm:p-3.5 text-center font-bold">URL</th>
-                    <th className="p-3 sm:p-3.5 text-center font-bold">Status</th>
-                    <th className="p-3 sm:p-3.5 text-center font-bold">Nama Tester</th>
+                    <th className="p-3 sm:p-3.5 text-center font-bold">STATUS</th>
+                    <th className="p-3 sm:p-3.5 text-center font-bold">TESTER NAME</th>
                     {(!isSelectionMode || userRole !== 'admin') && (
-                      <th className="p-3 sm:p-3.5 text-center font-bold">Aksi</th>
+                      <th className="p-3 sm:p-3.5 text-center font-bold">ACTION</th>
                     )}
                   </tr>
                 </thead>
@@ -898,15 +898,15 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
                                   }
                                   onChange={() => toggleSelectAll(dateSites)}
                                   className="w-3.5 h-3.5 rounded border-[#FFE0B2]/40 bg-[#1a0f0b] text-amber-500 focus:ring-amber-400 focus:ring-offset-0 cursor-pointer"
-                                  title="Pilih Semua Situs Tanggal Ini"
+                                  title="Select All Sites for This Date"
                                 />
                               </td>
                             )}
                             <td colSpan={userRole === 'admin' && isSelectionMode ? 5 : 6} className="px-3.5 py-2.5 text-xs font-semibold text-[#FFE0B2] tracking-wide">
                               <div className="flex items-center space-x-2">
                                 <span className="text-amber-400 font-bold">📅</span>
-                                <span className="font-bold text-[#FFE0B2]">Tanggal Pengujian: {formatDateIndo(dateStr)}</span>
-                                <span className="text-[11px] font-normal text-[#FFE0B2]/60 ml-2">({dateSites.length} situs)</span>
+                                <span className="font-bold text-[#FFE0B2]">Testing Date: {formatDateEn(dateStr)}</span>
+                                <span className="text-[11px] font-normal text-[#FFE0B2]/60 ml-2">({dateSites.length} sites)</span>
                               </div>
                             </td>
                           </tr>
@@ -928,10 +928,10 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
                               : 'text-amber-300';
                           const statusText =
                             site.status === 'BERHASIL'
-                              ? 'Berhasil'
+                              ? 'Successful'
                               : site.status === 'GAGAL'
-                              ? 'Gagal'
-                              : 'Belum Dicek';
+                              ? 'Failed'
+                              : 'Pending';
 
                           return (
                             <tr
@@ -970,7 +970,7 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
                                     type="button"
                                     onClick={() => handleCopyLink(site.url)}
                                     className="p-1 rounded bg-[#FFF8EE]/10 hover:bg-[#FFE0B2] hover:text-[#3E2522] text-[#FFE0B2] transition cursor-pointer shrink-0"
-                                    title="Salin Link"
+                                    title="Copy Link"
                                   >
                                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                                       <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -997,7 +997,7 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
                                         const val = e.target.value;
                                         setRowTesterNames((prev) => ({ ...prev, [site.id]: val }));
                                       }}
-                                      placeholder="Ketik Nama..."
+                                      placeholder="Enter Name..."
                                       className="w-28 sm:w-36 px-2.5 py-1 text-center text-xs font-semibold text-[#FFF8EE] placeholder-[#FFE0B2]/35 bg-black/30 hover:bg-black/50 focus:bg-black/80 border border-[#FFE0B2]/20 hover:border-[#FFE0B2]/50 focus:border-amber-400 focus:ring-1 focus:ring-amber-400/50 rounded-xl transition-all duration-200 outline-none shadow-sm"
                                     />
                                   </div>
@@ -1014,32 +1014,32 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
                                         type="button"
                                         onClick={() => setConfirmDeleteSite(site)}
                                         className="px-3 py-1 text-xs font-semibold rounded-full bg-rose-500/20 hover:bg-rose-500/40 border border-rose-500/40 text-rose-300 backdrop-blur-md transition cursor-pointer inline-flex items-center justify-center"
-                                        title="Hapus Situs (mulai tanggal ini)"
+                                        title="Delete Site (starting from this date)"
                                       >
-                                        <span>Hapus</span>
+                                        <span>Delete</span>
                                       </button>
                                     ) : (
                                       /* Testing Input Actions (Unlocked ONLY for Today's Date for Tester) */
                                       isTested ? (
                                         <span
                                           className="px-3 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 backdrop-blur-md select-none inline-block"
-                                          title="Situs ini telah diuji dan hasil telah dikunci"
+                                          title="This site has been tested and results are locked"
                                         >
-                                          ✓ Terkunci
+                                          ✓ Locked
                                         </span>
                                       ) : isFuture ? (
                                         <span
                                           className="px-3 py-1 rounded-full text-[11px] font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30 backdrop-blur-md cursor-not-allowed select-none inline-block"
-                                          title="Jadwal pengujian belum tiba (jadwal mendatang terkunci)"
+                                          title="Testing schedule hasn't arrived yet (future schedules locked)"
                                         >
-                                          Belum Waktunya
+                                          Not Time Yet
                                         </span>
                                       ) : isPast ? (
                                         <span
                                           className="px-3 py-1 rounded-full text-[11px] font-semibold bg-stone-800/60 text-stone-400 border border-stone-700/50 backdrop-blur-md cursor-not-allowed select-none inline-block"
-                                          title="Jadwal pengujian tanggal lalu telah terlewat & dikunci (hanya bisa dilihat)"
+                                          title="Past testing schedule missed & locked (view-only)"
                                         >
-                                          Terlewat (LOCKED)
+                                          Missed (LOCKED)
                                         </span>
                                       ) : (
                                         <div className="flex items-center justify-center space-x-2">
@@ -1050,7 +1050,7 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
                                             className="px-3 py-1.5 text-xs font-bold rounded-full bg-[#00A86B] hover:bg-[#008f5b] text-white flex items-center space-x-1.5 shadow-md transition cursor-pointer disabled:opacity-50"
                                           >
                                             <span className="w-2.5 h-2.5 rounded-full bg-emerald-200 inline-block"></span>
-                                            <span>Berhasil</span>
+                                            <span>Successful</span>
                                           </button>
 
                                           <button
@@ -1060,7 +1060,7 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
                                             className="px-3 py-1.5 text-xs font-bold rounded-full bg-[#E60039] hover:bg-[#c40030] text-white flex items-center space-x-1.5 shadow-md transition cursor-pointer disabled:opacity-50"
                                           >
                                             <span className="w-2.5 h-2.5 rounded-full border-2 border-white inline-block"></span>
-                                            <span>Gagal</span>
+                                            <span>Failed</span>
                                           </button>
                                         </div>
                                       )
@@ -1100,37 +1100,37 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
                 Admin Panel
               </span>
               <h3 className="text-base sm:text-lg font-bold text-[#FFF8EE] mt-0.5">
-                Tambah Situs Pengujian Baru
+                Add New Testing Site
               </h3>
             </div>
 
             <form onSubmit={handleSaveSitusBaru} className="space-y-4 text-xs">
               <div>
-                <label className="block text-[#FFE0B2]/80 mb-1.5 font-medium">Nama Situs</label>
+                <label className="block text-[#FFE0B2]/80 mb-1.5 font-medium">Site Name</label>
                 <input
                   type="text"
                   required
                   value={newSiteName}
                   onChange={(e) => setNewSiteName(e.target.value)}
-                  placeholder="Contoh: European Payment Portal"
+                  placeholder="Example: European Payment Portal"
                   className="w-full px-3.5 py-2.5 rounded-xl bg-[#FFF8EE]/5 border border-[#FFE0B2]/30 text-[#FFF8EE] focus:outline-none focus:border-[#FFE0B2]"
                 />
               </div>
 
               <div>
-                <label className="block text-[#FFE0B2]/80 mb-1.5 font-medium">URL Link Situs</label>
+                <label className="block text-[#FFE0B2]/80 mb-1.5 font-medium">Site Link URL</label>
                 <input
                   type="text"
                   required
                   value={newSiteUrl}
                   onChange={(e) => setNewSiteUrl(e.target.value)}
-                  placeholder="drive.europeantester.com atau https://..."
+                  placeholder="drive.europeantester.com or https://..."
                   className="w-full px-3.5 py-2.5 rounded-xl bg-[#FFF8EE]/5 border border-[#FFE0B2]/30 text-[#FFF8EE] focus:outline-none focus:border-[#FFE0B2]"
                 />
               </div>
 
               <div>
-                <label className="block text-[#FFE0B2]/80 mb-1.5 font-medium">Tanggal Mulai Pengujian</label>
+                <label className="block text-[#FFE0B2]/80 mb-1.5 font-medium">Testing Start Date</label>
                 <CustomDatePicker
                   value={newSiteDate || getTodayDateStr()}
                   onChange={(val) => setNewSiteDate(val)}
@@ -1145,7 +1145,7 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
                   onClick={() => setShowAddSiteModal(false)}
                   className="px-4 py-2 rounded-xl bg-[#FFF8EE]/10 border border-[#FFE0B2]/20 text-[#FFF8EE] hover:bg-[#FFF8EE]/20 transition cursor-pointer"
                 >
-                  Batal
+                  Cancel
                 </button>
                 <button
                   type="submit"
@@ -1155,10 +1155,10 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
                   {isAddingSite ? (
                     <>
                       <span className="w-3.5 h-3.5 border-2 border-[#3E2522]/30 border-t-[#3E2522] rounded-full animate-spin" />
-                      <span>Menambahkan...</span>
+                      <span>Adding...</span>
                     </>
                   ) : (
-                    <span>Tambah Situs</span>
+                    <span>Add Site</span>
                   )}
                 </button>
               </div>
@@ -1205,12 +1205,12 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
               </svg>
             </div>
             <div>
-              <h4 className="text-sm font-bold text-[#FFF8EE]">Konfirmasi Hapus Situs</h4>
+              <h4 className="text-sm font-bold text-[#FFF8EE]">Confirm Delete Site</h4>
               <p className="text-xs text-[#FFE0B2]/80 mt-1.5 leading-relaxed">
-                Apakah Anda yakin ingin menghapus situs <strong className="text-rose-400">&quot;{confirmDeleteSite.name}&quot;</strong> pada tanggal <strong>{formatDateIndo(dateFilterVal)}</strong>?
+                Are you sure you want to delete the site <strong className="text-rose-400">&quot;{confirmDeleteSite.name}&quot;</strong> for date <strong>{formatDateEn(dateFilterVal)}</strong>?
               </p>
               <p className="text-[11px] text-amber-300/80 mt-2 bg-amber-500/10 border border-amber-500/20 p-2 rounded-xl text-left leading-relaxed">
-                💡 <strong>Catatan Rekap:</strong> Data rekap sebelum tanggal {formatDateIndo(dateFilterVal)} akan <strong>tetap tersimpan</strong>, sedangkan tanggal {formatDateIndo(dateFilterVal)} & seterusnya akan terhapus.
+                💡 <strong>Summary Note:</strong> Summary data before {formatDateEn(dateFilterVal)} will <strong>remain saved</strong>, while data from {formatDateEn(dateFilterVal)} onward will be deleted.
               </p>
             </div>
             <div className="pt-2 flex items-center space-x-3">
@@ -1219,7 +1219,7 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
                 onClick={() => setConfirmDeleteSite(null)}
                 className="w-1/2 py-2.5 text-xs font-semibold rounded-xl bg-[#FFF8EE]/10 border border-[#FFE0B2]/20 text-[#FFF8EE] hover:bg-[#FFF8EE]/20 transition cursor-pointer"
               >
-                Batal
+                Cancel
               </button>
               <button
                 type="button"
@@ -1230,10 +1230,10 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
                 {isDeletingSite ? (
                   <>
                     <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    <span>Menghapus...</span>
+                    <span>Deleting...</span>
                   </>
                 ) : (
-                  <span>Hapus</span>
+                  <span>Delete</span>
                 )}
               </button>
             </div>
@@ -1251,9 +1251,9 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
               </svg>
             </div>
             <div>
-              <h4 className="text-sm font-bold text-[#FFF8EE]">Konfirmasi Hapus Massal</h4>
+              <h4 className="text-sm font-bold text-[#FFF8EE]">Confirm Bulk Delete</h4>
               <p className="text-xs text-[#FFE0B2]/80 mt-1.5 leading-relaxed">
-                Apakah Anda yakin ingin menghapus <strong className="text-rose-400">{selectedSiteIds.length} situs terpilih</strong> sekaligus dari daftar pengujian?
+                Are you sure you want to delete <strong className="text-rose-400">{selectedSiteIds.length} selected site(s)</strong> from the testing list?
               </p>
             </div>
             <div className="pt-2 flex items-center space-x-3">
@@ -1262,7 +1262,7 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
                 onClick={() => setShowBulkDeleteConfirm(false)}
                 className="w-1/2 py-2.5 text-xs font-semibold rounded-xl bg-[#FFF8EE]/10 border border-[#FFE0B2]/20 text-[#FFE0B2] hover:bg-[#FFF8EE]/20 transition cursor-pointer"
               >
-                Batal
+                Cancel
               </button>
               <button
                 type="button"
@@ -1273,10 +1273,10 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
                 {isDeletingSite ? (
                   <>
                     <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    <span>Menghapus...</span>
+                    <span>Deleting...</span>
                   </>
                 ) : (
-                  <span>Hapus ({selectedSiteIds.length})</span>
+                  <span>Delete ({selectedSiteIds.length})</span>
                 )}
               </button>
             </div>
@@ -1288,13 +1288,13 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
       {confirmTestSubmission && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md transition-all overflow-y-auto">
           <div className="w-full max-w-md p-5 sm:p-6 bg-[#18120e] rounded-2xl text-white font-sans shadow-xl relative my-auto max-h-[90vh] overflow-y-auto">
-            <h2 className="text-lg sm:text-xl font-bold mb-1">Konfirmasi Pengujian</h2>
-            <p className="text-xs sm:text-sm text-amber-100/60 mb-5">Periksa detail hasil pengujian sebelum menyimpan.</p>
+            <h2 className="text-lg sm:text-xl font-bold mb-1">Confirm Test Result</h2>
+            <p className="text-xs sm:text-sm text-amber-100/60 mb-5">Please check test result details before saving.</p>
 
             <div className="space-y-3.5">
               {/* Nama Situs */}
               <div className="flex justify-between items-center py-2 border-b border-zinc-800/60">
-                <span className="text-xs sm:text-sm text-amber-100/70 font-medium">Nama Situs</span>
+                <span className="text-xs sm:text-sm text-amber-100/70 font-medium">Site Name</span>
                 <span className="text-xs sm:text-sm font-semibold text-white">{confirmTestSubmission.site.name}</span>
               </div>
 
@@ -1306,16 +1306,16 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
 
               {/* Hasil Pengujian */}
               <div className="flex justify-between items-center py-2 border-b border-zinc-800/60">
-                <span className="text-xs sm:text-sm text-amber-100/70 font-medium">Hasil Pengujian</span>
+                <span className="text-xs sm:text-sm text-amber-100/70 font-medium">Test Result</span>
                 <span className="text-xs sm:text-sm font-semibold text-white">
-                  {confirmTestSubmission.resultStatus === 'BERHASIL' ? 'Berhasil' : 'Gagal'}
+                  {confirmTestSubmission.resultStatus === 'BERHASIL' ? 'Successful' : 'Failed'}
                 </span>
               </div>
 
               {/* Nama Tester */}
               {!confirmTestSubmission.isEditingName ? (
                 <div className="flex justify-between items-center py-2 border-b border-zinc-800/60">
-                  <span className="text-xs sm:text-sm text-amber-100/70 font-medium">Nama Tester</span>
+                  <span className="text-xs sm:text-sm text-amber-100/70 font-medium">Tester Name</span>
                   <div className="flex items-center gap-2">
                     <span className="text-xs sm:text-sm font-semibold text-white">{confirmTestSubmission.testerName}</span>
                     <button
@@ -1327,7 +1327,7 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
                       }
                       className="text-xs text-amber-400 hover:underline cursor-pointer"
                     >
-                      (Ubah)
+                      (Change)
                     </button>
                   </div>
                 </div>
@@ -1335,9 +1335,9 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
                 <div className="pt-2 space-y-1.5">
                   <div className="flex items-center justify-between">
                     <label className="block text-xs font-semibold text-amber-400">
-                      ⚠️ Nama Tester Belum Diisi:
+                      ⚠️ Tester Name Required:
                     </label>
-                    <span className="text-[10px] text-amber-300/70 font-medium">Wajib Diisi</span>
+                    <span className="text-[10px] text-amber-300/70 font-medium">Required</span>
                   </div>
                   <input
                     type="text"
@@ -1358,11 +1358,11 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
                         }
                       }
                     }}
-                    placeholder="Silakan ketik nama tester Anda di sini..."
+                    placeholder="Please enter your tester name here..."
                     className="w-full px-3.5 py-2.5 bg-[#0d0907] border border-amber-500/50 focus:border-amber-400 focus:ring-1 focus:ring-amber-400 rounded-xl text-white text-xs sm:text-sm placeholder-zinc-500 outline-none"
                   />
                   <p className="text-[10px] text-amber-100/60">
-                    Silakan ketik nama tester Anda sebelum menyimpan hasil pengujian.
+                    Please enter your tester name before saving test results.
                   </p>
                 </div>
               )}
@@ -1374,7 +1374,7 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
                   onClick={() => setConfirmTestSubmission(null)}
                   className="px-4 py-2 text-xs sm:text-sm text-amber-100/80 hover:text-white font-medium transition cursor-pointer"
                 >
-                  Batal
+                  Cancel
                 </button>
                 <button
                   type="button"
@@ -1383,9 +1383,9 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
                   className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-black font-semibold rounded-xl text-xs sm:text-sm transition shadow-lg shadow-amber-500/20 cursor-pointer disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {submittingSiteId === confirmTestSubmission.site.id ? (
-                    <span>Menyimpan...</span>
+                    <span>Saving...</span>
                   ) : (
-                    <span>Simpan Hasil</span>
+                    <span>Save Result</span>
                   )}
                 </button>
               </div>
