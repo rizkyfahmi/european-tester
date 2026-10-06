@@ -19,7 +19,7 @@
  */
 
 const CONFIG = {
-  BACKEND_URL: 'https://frontend-lw4m-ten.vercel.app/api/v1',
+  BACKEND_URL: 'https://european-tester.vercel.app/api/v1',
   API_KEY: 'qa-secret-api-key-2026',
   PRIMARY_SHEET_NAME: 'Data Testing QA',
 };
@@ -185,6 +185,7 @@ function onOpen() {
   ui.createMenu('📌 QA Sync')
     .addItem('🔄 Synchronize / Refresh from Web App', 'refreshAllData')
     .addItem('💾 Save Selected Row to Web App', 'saveSelectedRow')
+    .addItem('🗑️ Hapus Baris Terpilih dari Web App', 'deleteSelectedRow')
     .addSeparator()
     .addItem('🔒 Format Header & Penanda', 'formatSystemFields')
     .addToUi();
@@ -527,4 +528,96 @@ function formatSystemFields() {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
   sheet.getRange("1:1").setFontWeight("bold").setBackground("#1e293b").setFontColor("#ffffff");
   SpreadsheetApp.getUi().alert('🔒 Formatting header selesai.');
+}
+
+/**
+ * Delete Selected Row(s) from Web App, Database & Spreadsheet
+ */
+function deleteSelectedRow() {
+  const ui = SpreadsheetApp.getUi();
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  const range = sheet.getActiveRange();
+
+  if (!range) {
+    ui.alert('⚠️ Silakan pilih baris data yang ingin dihapus.');
+    return;
+  }
+
+  const startRow = range.getRow();
+  const numRows = range.getNumRows();
+
+  if (startRow <= 1) {
+    ui.alert('⚠️ Silakan pilih baris data (bukan baris header).');
+    return;
+  }
+
+  const selectedValues = sheet.getRange(startRow, 1, numRows, 8).getValues();
+  const itemsToDelete = [];
+
+  for (let i = 0; i < selectedValues.length; i++) {
+    const row = selectedValues[i];
+    const name = String(row[1] || '').trim();
+    const targetDate = String(row[4] || '').trim();
+    const id = String(row[6] || '').trim();
+    if (name || id) {
+      itemsToDelete.push({ name: name, id: id, targetDate: targetDate });
+    }
+  }
+
+  if (itemsToDelete.length === 0) {
+    ui.alert('⚠️ Tidak ada data situs yang valid pada baris terpilih.');
+    return;
+  }
+
+  const namesList = itemsToDelete.map(function(item) { return item.name || item.id; }).join(', ');
+  const confirmResponse = ui.alert(
+    '❓ Konfirmasi Penghapusan Situs',
+    `Apakah Anda yakin ingin menghapus ${itemsToDelete.length} situs terpilih ("${namesList}") dari Web App, Database, dan Spreadsheet?\n\nData yang dihapus tidak dapat dikembalikan.`,
+    ui.ButtonSet.YES_NO
+  );
+
+  if (confirmResponse !== ui.Button.YES) {
+    return;
+  }
+
+  let deletedCount = 0;
+  const options = {
+    method: 'delete',
+    headers: {
+      'X-API-KEY': CONFIG.API_KEY,
+      'Authorization': 'Bearer ' + CONFIG.API_KEY,
+      'ngrok-skip-browser-warning': 'true',
+    },
+    muteHttpExceptions: true,
+  };
+
+  itemsToDelete.forEach(function(item) {
+    let success = false;
+    if (item.id) {
+      try {
+        const deleteUrl = `${CONFIG.BACKEND_URL}/sites/${encodeURIComponent(item.id)}?targetDate=${encodeURIComponent(item.targetDate || '')}`;
+        const res = UrlFetchApp.fetch(deleteUrl, options);
+        if (res.getResponseCode() === 200 || res.getResponseCode() === 204) {
+          success = true;
+        }
+      } catch (e) {}
+    }
+
+    if (!success && item.name) {
+      try {
+        const deleteByNameUrl = `${CONFIG.BACKEND_URL}/sites/by-name/${encodeURIComponent(item.name)}`;
+        const res = UrlFetchApp.fetch(deleteByNameUrl, options);
+        if (res.getResponseCode() === 200 || res.getResponseCode() === 204) {
+          success = true;
+        }
+      } catch (e) {}
+    }
+
+    if (success) {
+      deletedCount++;
+    }
+  });
+
+  refreshAllData();
+  ui.alert(`✅ Success: ${deletedCount} situs berhasil dihapus dari Web App, Database, dan Spreadsheet!`);
 }
