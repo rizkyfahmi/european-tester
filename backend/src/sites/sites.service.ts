@@ -141,13 +141,12 @@ export class SitesService {
           };
         });
 
-        const dbSiteNames = new Set(formattedSites.map((s) => s.name.trim().toLowerCase()));
-        const extraFileSites = fileSites.filter((fs) => fs && fs.name && !dbSiteNames.has(fs.name.trim().toLowerCase()));
+        if (formattedSites.length > 0) {
+          this.writeSitesToFile(formattedSites);
+          return formattedSites;
+        }
 
-        const combined = [...formattedSites, ...extraFileSites];
-
-        this.writeSitesToFile(combined);
-        return combined;
+        return fileSites;
       }
 
       return this.readSitesFromFile();
@@ -683,25 +682,22 @@ export class SitesService {
   async syncSites(clientSites: SiteItem[]): Promise<SiteItem[]> {
     if (!Array.isArray(clientSites)) return this.getAllSites();
 
-    const existing = this.readSitesFromFile();
-    const map = new Map<string, SiteItem>();
-
-    existing.forEach((s) => {
-      if (s && s.name) map.set(s.name.trim().toLowerCase(), s);
-    });
-
-    clientSites.forEach((s) => {
-      if (s && s.name) {
-        const key = s.name.trim().toLowerCase();
-        if (!map.has(key) || (s.id && !s.id.startsWith('daily_'))) {
-          map.set(key, s);
-        }
-      }
-    });
-
-    const merged = Array.from(map.values());
+    const merged = clientSites.filter((s) => s && s.name);
 
     if (this.prisma.isConnected) {
+      const activeNames = merged.map((s) => s.name.trim().toLowerCase());
+      try {
+        await this.prisma.site.deleteMany({
+          where: {
+            NOT: {
+              name: { in: activeNames },
+            },
+          },
+        });
+      } catch (e) {
+        console.warn('Prisma delete missing sites error:', e);
+      }
+
       for (const site of merged) {
         if (!site || !site.name) continue;
         try {
