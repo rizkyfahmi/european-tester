@@ -264,46 +264,7 @@ export async function fetchSitesFromApi(): Promise<SiteItem[]> {
           return [];
         }
 
-        const validApiNames = new Set(sitesArray.map((s) => s.name.trim().toLowerCase()));
-        const local = getStoredSites();
-        const siteMap = new Map<string, SiteItem>();
-
-        // Only retain local items whose master site name exists in active backend sites
-        local.forEach((s) => {
-          const sNameLower = s.name.trim().toLowerCase();
-          if (validApiNames.has(sNameLower)) {
-            siteMap.set(s.id, s);
-          }
-        });
-
-        sitesArray.forEach((apiSite) => {
-          const apiDate = apiSite.targetDate || (apiSite.lastTestedAt ? apiSite.lastTestedAt.split('T')[0] : '');
-          const existingLocalKey = Array.from(siteMap.keys()).find((k) => {
-            const l = siteMap.get(k)!;
-            const lDate = l.targetDate || (l.lastTestedAt ? l.lastTestedAt.split('T')[0] : '');
-            return l.name.trim().toLowerCase() === apiSite.name.trim().toLowerCase() && lDate === apiDate;
-          });
-
-          if (existingLocalKey) {
-            const existingLocal = siteMap.get(existingLocalKey)!;
-            siteMap.delete(existingLocalKey);
-            if (existingLocal.status !== 'BELUM_DICEK' && apiSite.status === 'BELUM_DICEK') {
-              siteMap.set(apiSite.id, {
-                ...apiSite,
-                status: existingLocal.status,
-                lastTestedBy: existingLocal.lastTestedBy,
-                lastTestedAt: existingLocal.lastTestedAt,
-              });
-            } else {
-              siteMap.set(apiSite.id, apiSite);
-            }
-          } else {
-            siteMap.set(apiSite.id, apiSite);
-          }
-        });
-
-        const combined = Array.from(siteMap.values());
-        const processed = ensureDailyMasterSites(combined);
+        const processed = ensureDailyMasterSites(sitesArray);
         saveStoredSites(processed);
         return processed;
       }
