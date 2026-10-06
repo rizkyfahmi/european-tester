@@ -75,8 +75,9 @@ function ensureDailyMasterSites(sites) {
   if (!sites || sites.length === 0) return [];
   const todayStr = getTodayDateStr();
 
-  // Find minimum start date per site
+  // Find minimum start date and cutoff end date per site
   const masterDateMap = {};
+  const masterEndDateMap = {};
   sites.forEach(function(site) {
     if (!site || !site.name) return;
     const key = site.name.trim().toLowerCase();
@@ -86,9 +87,14 @@ function ensureDailyMasterSites(sites) {
         masterDateMap[key] = siteDate;
       }
     }
+    if (site.targetEndDate) {
+      if (!masterEndDateMap[key] || site.targetEndDate < masterEndDateMap[key]) {
+        masterEndDateMap[key] = site.targetEndDate;
+      }
+    }
   });
 
-  // Master site prototypes (unique by name, preferring ACTIVE master sites)
+  // Master site prototypes (unique by name, preferring ACTIVE master sites & records with targetEndDate)
   const masterMap = {};
   sites.forEach(function(site) {
     if (!site || !site.name) return;
@@ -99,7 +105,8 @@ function ensureDailyMasterSites(sites) {
     } else {
       if (existing.id && String(existing.id).startsWith('daily_') && site.id && !String(site.id).startsWith('daily_')) {
         masterMap[key] = site;
-      } else if (!site.targetEndDate && existing.targetEndDate) {
+      }
+      if (site.targetEndDate && !existing.targetEndDate) {
         masterMap[key] = site;
       }
     }
@@ -119,7 +126,7 @@ function ensureDailyMasterSites(sites) {
   Object.keys(masterMap).forEach(function(nameKey) {
     const masterSite = masterMap[nameKey];
     const siteStartDate = masterDateMap[nameKey] || masterSite.targetDate || todayStr;
-    const siteEndDate = masterSite.targetEndDate || null;
+    const siteEndDate = masterEndDateMap[nameKey] || masterSite.targetEndDate || null;
     if (!siteStartDate) return;
 
     let curDate = siteStartDate;
@@ -147,14 +154,15 @@ function ensureDailyMasterSites(sites) {
   });
 
   const cleanedList = updatedList.filter(function(site) {
+    if (!site || !site.name) return false;
+    const key = site.name.trim().toLowerCase();
     const sDate = site.targetDate || getSiteDateStr(site);
+    const minDate = masterDateMap[key];
+    const endDate = masterEndDateMap[key] || site.targetEndDate || (masterMap[key] ? masterMap[key].targetEndDate : null);
+
     if (sDate > todayStr && site.id && String(site.id).startsWith('daily_')) {
       return false;
     }
-    const key = site.name.trim().toLowerCase();
-    const minDate = masterDateMap[key];
-    const masterSite = masterMap[key];
-    const endDate = (site.id && String(site.id).startsWith('daily_')) ? (masterSite ? masterSite.targetEndDate : site.targetEndDate) : site.targetEndDate;
 
     if (minDate && sDate < minDate) return false;
     if (endDate && sDate > endDate) return false;
