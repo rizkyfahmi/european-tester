@@ -587,18 +587,23 @@ export class SitesService {
     }
 
     const targetNameLower = (nameSearch || cleanId).trim().toLowerCase();
+    const fileSites = this.readSitesFromFile();
+    const masterSiteInFile = fileSites.find(
+      (s) => s.id === cleanId || (s.name || '').trim().toLowerCase() === targetNameLower || (nameSearch && (s.name || '').trim().toLowerCase() === nameSearch.toLowerCase()),
+    );
+    const resolvedName = masterSiteInFile ? masterSiteInFile.name.trim() : (nameSearch || cleanId).trim();
+    const resolvedNameLower = resolvedName.toLowerCase();
+    const dailyIdPrefix = `daily_${resolvedNameLower.replace(/\s+/g, '_')}_`;
 
-    const getPreviousDateStr = (dateStr: string): string => {
-      const parts = dateStr.split('-');
-      if (parts.length !== 3) return dateStr;
-      const year = parseInt(parts[0], 10);
-      const month = parseInt(parts[1], 10) - 1;
-      const day = parseInt(parts[2], 10);
-      const d = new Date(Date.UTC(year, month, day - 1));
-      return d.toISOString().split('T')[0];
+    const isTargetSiteEntry = (s: SiteItem) => {
+      if (!s) return false;
+      const sId = (s.id || '').trim();
+      const sNameLower = (s.name || '').trim().toLowerCase();
+      if (sId === cleanId) return true;
+      if (sNameLower === resolvedNameLower) return true;
+      if (sId.startsWith(dailyIdPrefix)) return true;
+      return false;
     };
-
-    const cutoffDate = deleteDate ? getPreviousDateStr(deleteDate) : null;
 
     if (!deleteDate) {
       // Full Unconditional Delete (No targetDate specified)
@@ -608,7 +613,7 @@ export class SitesService {
             where: {
               OR: [
                 { id: cleanId },
-                ...(nameSearch ? [{ name: { equals: nameSearch } }] : []),
+                { name: { equals: resolvedName } },
               ],
             },
           });
@@ -641,12 +646,7 @@ export class SitesService {
         }
       }
 
-      const fileSites = this.readSitesFromFile();
-      const updated = fileSites.filter((s) => {
-        const sId = (s.id || '').trim();
-        const sNameLower = (s.name || '').trim().toLowerCase();
-        return sId !== cleanId && (!targetNameLower || sNameLower !== targetNameLower);
-      });
+      const updated = fileSites.filter((s) => !isTargetSiteEntry(s));
       this.writeSitesToFile(updated);
       return { success: true, id: cleanId, deleteDate: null, cutoffDate: null };
     }
@@ -658,7 +658,7 @@ export class SitesService {
           where: {
             OR: [
               { id: cleanId },
-              ...(nameSearch ? [{ name: { equals: nameSearch } }] : []),
+              { name: { equals: resolvedName } },
             ],
           },
         });
@@ -670,17 +670,12 @@ export class SitesService {
       }
     }
 
-    const fileSites = this.readSitesFromFile();
     let foundMaster = false;
-
     const updated = fileSites
       .filter((s) => {
-        const sId = (s.id || '').trim();
-        const sNameLower = (s.name || '').trim().toLowerCase();
         const sDate = s.targetDate || (s.lastTestedAt ? s.lastTestedAt.split('T')[0] : '');
 
-        // If s is an entry for targetNameLower, only filter out if sDate >= deleteDate
-        if (targetNameLower && (sNameLower === targetNameLower || sId.includes(targetNameLower))) {
+        if (isTargetSiteEntry(s)) {
           if (sDate && sDate >= deleteDate) {
             return false;
           }
@@ -688,8 +683,7 @@ export class SitesService {
         return true;
       })
       .map((s) => {
-        const sNameLower = (s.name || '').trim().toLowerCase();
-        if (targetNameLower && (sNameLower === targetNameLower || s.id.includes(targetNameLower))) {
+        if (isTargetSiteEntry(s)) {
           foundMaster = true;
           return {
             ...s,
@@ -699,13 +693,12 @@ export class SitesService {
         return s;
       });
 
-    const masterSiteInFile = fileSites.find((s) => (s.name || '').trim().toLowerCase() === targetNameLower || s.id === cleanId);
     const originalStartDate = masterSiteInFile?.targetDate || (deletedSite?.createdAt ? deletedSite.createdAt.toISOString().split('T')[0] : deleteDate);
 
-    if (!foundMaster && targetNameLower) {
+    if (!foundMaster) {
       updated.unshift({
         id: masterSiteInFile?.id || `site_cutoff_${Date.now()}`,
-        name: masterSiteInFile?.name || nameSearch || cleanId,
+        name: resolvedName,
         url: masterSiteInFile?.url || '',
         status: masterSiteInFile?.status || 'BELUM_DICEK',
         targetDate: originalStartDate,

@@ -520,13 +520,28 @@ export async function deleteSiteApi(siteId: string, deleteDate?: string, siteNam
   const current = getStoredSites();
   const targetSite = current.find((s) => s.id === siteId);
 
-  let nameToUse = (siteName || targetSite?.name || '').trim().toLowerCase();
-  if (!nameToUse && siteId.startsWith('daily_')) {
-    const parts = siteId.split('_');
-    if (parts.length >= 2) {
-      nameToUse = parts[1].replace(/_/g, ' ').trim().toLowerCase();
+  let extractedName = '';
+  if (siteId.startsWith('daily_')) {
+    const match = siteId.match(/^daily_(.+)_\d{4}-\d{2}-\d{2}$/);
+    if (match) {
+      extractedName = match[1].replace(/_/g, ' ').trim();
     }
   }
+
+  const resolvedName = siteName || targetSite?.name || extractedName || siteId;
+  const resolvedNameLower = resolvedName.trim().toLowerCase();
+  const dailyIdPrefix = `daily_${resolvedNameLower.replace(/\s+/g, '_')}_`;
+
+  const isTargetSiteEntry = (s: SiteItem) => {
+    if (!s) return false;
+    const sId = (s.id || '').trim();
+    const sNameLower = (s.name || '').trim().toLowerCase();
+    if (sId === siteId) return true;
+    if (targetSite && sId === targetSite.id) return true;
+    if (sNameLower === resolvedNameLower) return true;
+    if (sId.startsWith(dailyIdPrefix)) return true;
+    return false;
+  };
 
   const getPreviousDateStr = (dateStr: string): string => {
     const parts = dateStr.split('-');
@@ -545,10 +560,9 @@ export async function deleteSiteApi(siteId: string, deleteDate?: string, siteNam
     let foundMaster = false;
     const updated = current
       .filter((s) => {
-        const sNameLower = s.name.trim().toLowerCase();
         const sDate = s.targetDate || (s.lastTestedAt ? s.lastTestedAt.split('T')[0] : '');
 
-        if (nameToUse && (sNameLower === nameToUse || s.id.includes(nameToUse))) {
+        if (isTargetSiteEntry(s)) {
           if (sDate && sDate >= deleteDate) {
             return false;
           }
@@ -556,8 +570,7 @@ export async function deleteSiteApi(siteId: string, deleteDate?: string, siteNam
         return true;
       })
       .map((s) => {
-        const sNameLower = s.name.trim().toLowerCase();
-        if (nameToUse && (sNameLower === nameToUse || s.id.includes(nameToUse))) {
+        if (isTargetSiteEntry(s)) {
           foundMaster = true;
           return {
             ...s,
@@ -567,10 +580,10 @@ export async function deleteSiteApi(siteId: string, deleteDate?: string, siteNam
         return s;
       });
 
-    if (!foundMaster && nameToUse) {
+    if (!foundMaster) {
       updated.unshift({
         id: targetSite?.id || `site_cutoff_${Date.now()}`,
-        name: siteName || targetSite?.name || nameToUse,
+        name: resolvedName,
         url: targetSite?.url || '',
         status: targetSite?.status || 'BELUM_DICEK',
         targetDate: targetSite?.targetDate || deleteDate,
@@ -591,23 +604,13 @@ export async function deleteSiteApi(siteId: string, deleteDate?: string, siteNam
   }
 
   // Full Unconditional Delete (No deleteDate)
-  const filtered = current.filter((s) => {
-    const sId = s.id;
-    const sNameLower = s.name.trim().toLowerCase();
-
-    if (sId === siteId) return false;
-    if (nameToUse && (sNameLower === nameToUse || sId.includes(nameToUse))) return false;
-    return true;
-  });
+  const filtered = current.filter((s) => !isTargetSiteEntry(s));
 
   saveStoredSites(filtered, { skipEvent: true, skipSync: true });
 
   try {
     const encodedId = encodeURIComponent(siteId);
     await fetchWithTimeout(`${BACKEND_API_URL}/${encodedId}`, { method: 'DELETE' }, 4000);
-    if (nameToUse) {
-      await fetchWithTimeout(`${BACKEND_API_URL}/by-name/${encodeURIComponent(nameToUse)}`, { method: 'DELETE' }, 4000);
-    }
   } catch {
     // Silently fall back
   }

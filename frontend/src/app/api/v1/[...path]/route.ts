@@ -27,9 +27,11 @@ async function handleProxy(req: NextRequest, context: { params: Promise<{ path: 
     const rawTarget = decodeURIComponent(subPath.replace(/^sites\//, '')).trim().toLowerCase();
     const cleanTarget = rawTarget.replace(/^by-name\//, '');
     globalProxySitesCache = globalProxySitesCache.filter((s) => {
+      if (!s) return true;
       const sId = (s.id || '').toLowerCase();
       const sName = (s.name || '').toLowerCase();
-      if (sId === cleanTarget || sName === cleanTarget || sId.includes(cleanTarget)) return false;
+      if (sId === cleanTarget || sName === cleanTarget) return false;
+      if (cleanTarget && sId.startsWith(`daily_${cleanTarget.replace(/\s+/g, '_')}_`)) return false;
       return true;
     });
   }
