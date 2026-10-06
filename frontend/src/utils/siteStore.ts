@@ -504,47 +504,23 @@ export async function deleteSiteApi(siteId: string, deleteDate?: string, siteNam
     }
   }
 
-  let dateToUse = deleteDate || targetSite?.targetDate || (targetSite?.lastTestedAt ? targetSite.lastTestedAt.split('T')[0] : '');
-  if (!dateToUse && siteId.startsWith('daily_')) {
-    const match = siteId.match(/(\d{4}-\d{2}-\d{2})/);
-    if (match) dateToUse = match[1];
-  }
+  // Filter out any entries where s.id === siteId or name matches nameToUse unconditionally
+  const filtered = current.filter((s) => {
+    const sId = s.id;
+    const sNameLower = s.name.trim().toLowerCase();
 
-  const cutoffDate = dateToUse ? getPreviousDateStr(dateToUse) : null;
-
-  // Filter out any entries where s.id === siteId or name matches nameToUse
-  const filtered = current
-    .filter((s) => {
-      const sId = s.id;
-      const sNameLower = s.name.trim().toLowerCase();
-      const sDate = s.targetDate || (s.lastTestedAt ? s.lastTestedAt.split('T')[0] : '');
-
-      if (sId === siteId) return false;
-      if (nameToUse && sNameLower === nameToUse) {
-        if (!dateToUse || !sDate || sDate >= dateToUse) {
-          return false;
-        }
-      }
-      return true;
-    })
-    .map((s) => {
-      const sNameLower = s.name.trim().toLowerCase();
-      if (nameToUse && sNameLower === nameToUse && cutoffDate) {
-        return {
-          ...s,
-          targetEndDate: cutoffDate,
-        };
-      }
-      return s;
-    });
+    if (sId === siteId) return false;
+    if (nameToUse && (sNameLower === nameToUse || sId.includes(nameToUse))) return false;
+    return true;
+  });
 
   saveStoredSites(filtered);
 
   try {
     const encodedId = encodeURIComponent(siteId);
     let url = `${BACKEND_API_URL}/${encodedId}`;
-    if (dateToUse) {
-      url += `?targetDate=${encodeURIComponent(dateToUse)}`;
+    if (deleteDate) {
+      url += `?targetDate=${encodeURIComponent(deleteDate)}`;
     }
     await fetchWithTimeout(url, { method: 'DELETE' }, 4000);
 
