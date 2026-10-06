@@ -339,9 +339,13 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
         title: 'Berhasil Disimpan',
         message: `Situs "${siteNameTrim}" berhasil ditambahkan ke daftar pengujian mulai tanggal ${formatDateIndo(targetDate)}!`,
       });
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error adding site:', err);
       setIsAddingSite(false);
+      setCustomAlert({
+        title: 'Gagal Menambah Situs',
+        message: err?.message || 'Terjadi kesalahan saat menambahkan situs ke server.',
+      });
     }
   };
 
@@ -482,11 +486,11 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
               {dateFilterVal ? ` (${formatDateIndo(dateFilterVal)})` : ''}
             </h2>
 
-            {/* Action Buttons (Admin Only) */}
-            {userRole === 'admin' && (
-              <div className="grid grid-cols-2 sm:flex items-center gap-2 w-full sm:w-auto">
-                {/* Tombol Hapus / Mode Centang */}
-                {isSelectionMode ? (
+            {/* Action Buttons */}
+            <div className="grid grid-cols-2 sm:flex items-center gap-2 w-full sm:w-auto">
+              {/* Tombol Hapus Massal (Admin Only) */}
+              {userRole === 'admin' && (
+                isSelectionMode ? (
                   <>
                     <button
                       type="button"
@@ -537,24 +541,24 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
                     </svg>
                     <span>Hapus</span>
                   </button>
-                )}
+                )
+              )}
 
-                {/* Tombol Tambah Situs */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setNewSiteDate(dateFilterVal || getTodayDateStr());
-                    setShowAddSiteModal(true);
-                  }}
-                  className="px-3.5 py-1.5 text-xs font-bold rounded-full bg-gradient-to-r from-[#D3A376] to-[#FFE0B2] text-[#3E2522] hover:brightness-110 shadow-md transition flex items-center justify-center space-x-1 cursor-pointer"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
-                  </svg>
-                  <span>Tambah Situs</span>
-                </button>
-              </div>
-            )}
+              {/* Tombol Tambah Situs */}
+              <button
+                type="button"
+                onClick={() => {
+                  setNewSiteDate(dateFilterVal || getTodayDateStr());
+                  setShowAddSiteModal(true);
+                }}
+                className="px-3.5 py-1.5 text-xs font-bold rounded-full bg-gradient-to-r from-[#D3A376] to-[#FFE0B2] text-[#3E2522] hover:brightness-110 shadow-md transition flex items-center justify-center space-x-1 cursor-pointer"
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
+                </svg>
+                <span>Tambah Situs</span>
+              </button>
+            </div>
           </div>
 
           {/* Filter Toolbar (Grid on Mobile, Flex on Desktop) */}

@@ -200,9 +200,17 @@ export class SitesService {
     const normNewUrl = normalizeUrl(formattedUrl);
     const normNewName = name.toLowerCase();
 
-    // Check duplicate in file/database
+    // Check duplicate in file/database ONLY for active sites on targetDate
+    const todayStr = new Date().toISOString().split('T')[0];
+    const targetDate = siteData.targetDate || todayStr;
+    const targetEndDate = siteData.targetEndDate && siteData.targetEndDate.trim() ? siteData.targetEndDate.trim() : null;
+
     const existingSites = await this.getAllSites();
     const isDup = existingSites.some((s) => {
+      // If site was cut off before targetDate, it is no longer active for targetDate
+      if (s.targetEndDate && s.targetEndDate < targetDate) {
+        return false;
+      }
       const normExistingUrl = normalizeUrl(s.url || '');
       const normExistingName = (s.name || '').toLowerCase();
       return normExistingUrl === normNewUrl || normExistingName === normNewName;
@@ -211,10 +219,6 @@ export class SitesService {
     if (isDup) {
       throw new BadRequestException(`Situs dengan nama "${name}" atau URL "${formattedUrl}" sudah terdaftar.`);
     }
-
-    const todayStr = new Date().toISOString().split('T')[0];
-    const targetDate = siteData.targetDate || todayStr;
-    const targetEndDate = siteData.targetEndDate && siteData.targetEndDate.trim() ? siteData.targetEndDate.trim() : null;
 
     const fallbackSite: SiteItem = {
       id: `site_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,

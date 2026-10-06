@@ -155,12 +155,19 @@ export function ensureDailyMasterSites(sites: SiteItem[], targetDateStr?: string
     }
   });
 
-  // Extract unique master sites by lowercased name
+  // Extract unique master sites by lowercased name, preferring ACTIVE master sites (targetEndDate == null)
   const masterMap = new Map<string, SiteItem>();
   sites.forEach((site) => {
     const key = site.name.trim().toLowerCase();
-    if (!masterMap.has(key) || !site.id.startsWith('daily_')) {
+    const existing = masterMap.get(key);
+    if (!existing) {
       masterMap.set(key, site);
+    } else {
+      if (existing.id.startsWith('daily_') && !site.id.startsWith('daily_')) {
+        masterMap.set(key, site);
+      } else if (!site.targetEndDate && existing.targetEndDate) {
+        masterMap.set(key, site);
+      }
     }
   });
 
@@ -226,7 +233,7 @@ export function ensureDailyMasterSites(sites: SiteItem[], targetDateStr?: string
     const key = site.name.trim().toLowerCase();
     const minDate = masterDateMap.get(key);
     const masterSite = masterMap.get(key);
-    const endDate = masterSite?.targetEndDate || site.targetEndDate;
+    const endDate = site.id.startsWith('daily_') ? (masterSite?.targetEndDate || site.targetEndDate) : site.targetEndDate;
 
     if (minDate && sDate && sDate < minDate) {
       hasChanged = true;
