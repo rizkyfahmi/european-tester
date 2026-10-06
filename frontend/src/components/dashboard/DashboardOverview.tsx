@@ -961,7 +961,7 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
                               <td className="p-3 text-center tester-cell font-medium whitespace-nowrap">
                                 {site.lastTestedBy ? (
                                   <span className="text-[#FFF8EE] font-semibold tracking-wide">{site.lastTestedBy}</span>
-                                ) : !isPast && !isFuture && !isTested ? (
+                                ) : userRole !== 'admin' && !isPast && !isFuture && !isTested ? (
                                   <div className="inline-flex items-center justify-center">
                                     <input
                                       type="text"
