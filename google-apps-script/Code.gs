@@ -354,7 +354,7 @@ function refreshAllData() {
       const json = JSON.parse(res.getContentText());
       sitesData = Array.isArray(json) ? json : json.data || [];
     } else {
-      ui.alert(`❌ Gagal mengambil data situs dari Web App.\nHTTP Status Code: ${responseCode}\nPastikan server NestJS & ngrok tunnel aktif.`);
+      ui.alert(`❌ Gagal mengambil data situs dari Web App.\nHTTP Status Code: ${responseCode}\nPastikan Vercel Backend active & terhubung ke Database.`);
       return;
     }
   } catch (err) {
@@ -363,7 +363,7 @@ function refreshAllData() {
   }
 
   if (!sitesData || sitesData.length === 0) {
-    ui.alert('⚠️ Data situs kosong atau tidak berhasil diambil dari server.');
+    ui.alert('ℹ️ Data situs di server saat ini masih kosong (0 data).\nSilakan tambahkan situs baru melalui Web Dashboard Vercel.');
     return;
   }
 

@@ -98,7 +98,7 @@ export class SitesService {
   // 1. GET ALL SITES FROM DATABASE WITH FILE FALLBACK
   async getAllSites(): Promise<SiteItem[]> {
     try {
-      const sites = await this.prisma.site.findMany({
+      let sites = await this.prisma.site.findMany({
         include: {
           testingResults: {
             orderBy: { testedAt: 'desc' },
@@ -107,6 +107,29 @@ export class SitesService {
         },
         orderBy: { createdAt: 'desc' },
       });
+
+      // Auto-seed default initial sites if DB is empty
+      if (sites.length === 0 && this.prisma.isConnected) {
+        try {
+          await this.prisma.site.createMany({
+            data: [
+              { name: 'European QA Portal', url: 'https://european-testing.com', status: 'BELUM_DICEK' },
+              { name: 'Testing Portal Demo', url: 'https://qa-test-demo.com', status: 'BELUM_DICEK' },
+            ],
+          });
+          sites = await this.prisma.site.findMany({
+            include: {
+              testingResults: {
+                orderBy: { testedAt: 'desc' },
+                take: 1,
+              },
+            },
+            orderBy: { createdAt: 'desc' },
+          });
+        } catch {
+          // ignore seeding error
+        }
+      }
 
       const fileSites = this.readSitesFromFile();
       const fileMap = new Map(fileSites.map((s) => [s.id, s]));
