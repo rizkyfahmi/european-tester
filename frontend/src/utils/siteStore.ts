@@ -44,20 +44,24 @@ export function getStoredSites(): SiteItem[] {
   }
 }
 
-export function saveStoredSites(sites: SiteItem[]): void {
+export function saveStoredSites(sites: SiteItem[], options?: { skipEvent?: boolean; skipSync?: boolean }): void {
   if (typeof window === 'undefined') return;
   localStorage.setItem('sites_data_v3', JSON.stringify(sites || []));
-  window.dispatchEvent(new Event('sites_updated'));
+  if (!options?.skipEvent) {
+    window.dispatchEvent(new Event('sites_updated'));
+  }
 
-  fetchWithTimeout(
-    `${BACKEND_API_URL}/sync`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sites: sites || [] }),
-    },
-    5000
-  ).catch(() => {});
+  if (!options?.skipSync) {
+    fetchWithTimeout(
+      `${BACKEND_API_URL}/sync`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sites: sites || [] }),
+      },
+      5000
+    ).catch(() => {});
+  }
 }
 
 export function getStoredLogs(): TestingLog[] {
@@ -329,7 +333,7 @@ export async function createSiteApi(name: string, url: string, targetDate?: stri
   const normNewUrl = normalizeUrl(cleanUrl);
   const normNewName = cleanName.toLowerCase();
 
-  saveStoredSites([fallbackSite, ...current.filter((s) => s.name.toLowerCase() !== cleanName.toLowerCase())]);
+  saveStoredSites([fallbackSite, ...current.filter((s) => s.name.toLowerCase() !== cleanName.toLowerCase())], { skipEvent: true, skipSync: true });
 
   try {
     const res = await fetchWithTimeout(
@@ -351,13 +355,13 @@ export async function createSiteApi(name: string, url: string, targetDate?: stri
         targetEndDate: rawApiSite.targetEndDate || finalTargetEndDate,
       };
       const latestSites = getStoredSites();
-      const synced = latestSites.map((s) => (s.name.toLowerCase() === cleanName.toLowerCase() || s.id === fallbackSite.id ? newSite : s));
-      saveStoredSites(synced);
+      const synced = [newSite, ...latestSites.filter((s) => s.name.toLowerCase() !== cleanName.toLowerCase() && s.id !== fallbackSite.id)];
+      saveStoredSites(synced, { skipEvent: true, skipSync: true });
       return newSite;
     } else if (res && !res.ok) {
       const errJson = await res.json().catch(() => ({}));
       const latestSites = getStoredSites().filter((s) => s.id !== fallbackSite.id && s.name.toLowerCase() !== cleanName.toLowerCase());
-      saveStoredSites(latestSites);
+      saveStoredSites(latestSites, { skipEvent: true, skipSync: true });
       throw new Error(errJson.message || 'Gagal menambahkan situs ke server');
     }
   } catch (err: any) {
@@ -487,7 +491,7 @@ export async function deleteSiteApi(siteId: string, deleteDate?: string, siteNam
     return true;
   });
 
-  saveStoredSites(filtered);
+  saveStoredSites(filtered, { skipEvent: true, skipSync: true });
 
   try {
     const encodedId = encodeURIComponent(siteId);
