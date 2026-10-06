@@ -276,14 +276,21 @@ export function ensureDailyMasterSites(sites: SiteItem[], targetDateStr?: string
 
 // NestJS Backend REST API Integration
 export async function fetchSitesFromApi(): Promise<SiteItem[]> {
+  const localSites = getStoredSites();
   try {
     const res = await fetchWithTimeout(BACKEND_API_URL, { cache: 'no-store' }, 12000);
     if (res && res.ok) {
       const json = await res.json();
-      const sitesArray: SiteItem[] = Array.isArray(json) ? json : json.data;
+      const sitesArray: SiteItem[] = Array.isArray(json) ? json : (json && json.data ? json.data : []);
       if (Array.isArray(sitesArray)) {
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('sites_data_v3', JSON.stringify(sitesArray));
+        if (sitesArray.length > 0) {
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('sites_data_v3', JSON.stringify(sitesArray));
+          }
+          return sitesArray;
+        } else if (localSites.length > 0) {
+          // Retain local sites if API returned empty array during network glitch
+          return localSites;
         }
         return sitesArray;
       }
@@ -291,18 +298,24 @@ export async function fetchSitesFromApi(): Promise<SiteItem[]> {
   } catch {
     // Silently fall back to local storage
   }
-  return getStoredSites();
+  return localSites;
 }
 
 export async function fetchLogsFromApi(): Promise<TestingLog[]> {
+  const localLogs = getStoredLogs();
   try {
     const res = await fetchWithTimeout(BACKEND_LOGS_URL, { cache: 'no-store' }, 4000);
     if (res && res.ok) {
       const json = await res.json();
-      const logsArray = Array.isArray(json) ? json : json.data;
+      const logsArray = Array.isArray(json) ? json : (json && json.data ? json.data : []);
       if (Array.isArray(logsArray)) {
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('testing_logs_v3', JSON.stringify(logsArray));
+        if (logsArray.length > 0) {
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('testing_logs_v3', JSON.stringify(logsArray));
+          }
+          return logsArray;
+        } else if (localLogs.length > 0) {
+          return localLogs;
         }
         return logsArray;
       }
@@ -310,7 +323,7 @@ export async function fetchLogsFromApi(): Promise<TestingLog[]> {
   } catch {
     // Silently fall back to local storage
   }
-  return getStoredLogs();
+  return localLogs;
 }
 
 export async function createSiteApi(name: string, url: string, targetDate?: string, targetEndDate?: string): Promise<SiteItem | null> {

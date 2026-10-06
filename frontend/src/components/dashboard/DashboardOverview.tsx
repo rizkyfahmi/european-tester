@@ -23,8 +23,15 @@ interface DashboardOverviewProps {
 export default function DashboardOverview({ forcedRole }: DashboardOverviewProps = {}) {
   const [userName, setUserName] = useState<string>('Alex Tester');
   const [userRole, setUserRole] = useState<'admin' | 'tester'>(forcedRole || 'tester');
-  const [sites, setSites] = useState<SiteItem[]>([]);
-  const [logs, setLogs] = useState<TestingLog[]>([]);
+  const [sites, setSites] = useState<SiteItem[]>(() => {
+    if (typeof window === 'undefined') return [];
+    const cached = getStoredSites();
+    return ensureDailyMasterSites(cached, getTodayDateStr());
+  });
+  const [logs, setLogs] = useState<TestingLog[]>(() => {
+    if (typeof window === 'undefined') return [];
+    return getStoredLogs();
+  });
 
   // Search & Filters
   const [searchQuery, setSearchQuery] = useState('');
