@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const BACKEND_URL = process.env.NESTJS_BACKEND_URL || 'https://european-tester.vercel.app/api/v1';
 
+let globalProxySitesCache: any[] = [];
+
 async function handleProxy(req: NextRequest, context: { params: Promise<{ path: string[] }> }) {
   const resolvedParams = await context.params;
   const pathParts = resolvedParams.path || [];
@@ -17,12 +19,19 @@ async function handleProxy(req: NextRequest, context: { params: Promise<{ path: 
     }
   });
 
-  let body: any = null;
+  let bodyText: any = null;
   if (['POST', 'PATCH', 'PUT'].includes(req.method)) {
     try {
-      body = await req.text();
+      bodyText = await req.text();
+      if (subPath === 'sites/sync' || subPath === 'sites') {
+        const parsed = JSON.parse(bodyText);
+        const incomingSites = Array.isArray(parsed) ? parsed : parsed.sites || parsed.data;
+        if (Array.isArray(incomingSites) && incomingSites.length > 0) {
+          globalProxySitesCache = incomingSites;
+        }
+      }
     } catch {
-      body = null;
+      // ignore JSON parse error
     }
   }
 
@@ -33,7 +42,7 @@ async function handleProxy(req: NextRequest, context: { params: Promise<{ path: 
         ...headers,
         'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       },
-      body: body || undefined,
+      body: bodyText || undefined,
       cache: 'no-store',
     });
 
@@ -45,11 +54,35 @@ async function handleProxy(req: NextRequest, context: { params: Promise<{ path: 
       'access-control-allow-headers': '*',
     };
 
+    if (subPath === 'sites' && req.method === 'GET' && backendRes.status === 200) {
+      try {
+        const json = JSON.parse(dataText);
+        const sitesArr = Array.isArray(json) ? json : json.data || [];
+        if (sitesArr.length === 0 && globalProxySitesCache.length > 0) {
+          return NextResponse.json(
+            { status: 'SUCCESS', data: globalProxySitesCache },
+            { status: 200, headers: resHeaders }
+          );
+        }
+        if (sitesArr.length > 0) {
+          globalProxySitesCache = sitesArr;
+        }
+      } catch {
+        // ignore
+      }
+    }
+
     return new NextResponse(dataText, {
       status: backendRes.status,
       headers: resHeaders,
     });
   } catch (err: any) {
+    if (subPath === 'sites' && req.method === 'GET' && globalProxySitesCache.length > 0) {
+      return NextResponse.json(
+        { status: 'SUCCESS', data: globalProxySitesCache },
+        { status: 200 }
+      );
+    }
     return NextResponse.json(
       { status: 'ERROR', message: `Proxy Error: ${err.message || 'Could not connect to backend'}` },
       { status: 502 }
