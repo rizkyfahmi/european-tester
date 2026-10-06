@@ -35,22 +35,7 @@ export interface TestingLog {
 export class SitesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private static globalSitesMemory: SiteItem[] = [
-    {
-      id: 'site_default_1',
-      name: 'European QA Portal',
-      url: 'https://european-testing.com',
-      status: 'BELUM_DICEK',
-      lastTestedBy: null,
-      lastTestedAt: null,
-      targetDate: new Date().toISOString().split('T')[0],
-      targetEndDate: null,
-      notes: null,
-      version: 1,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-  ];
+  private static globalSitesMemory: SiteItem[] = [];
 
   private getSitesFilePath(): string {
     return path.join(process.cwd(), 'data', 'sites.json');
@@ -119,9 +104,8 @@ export class SitesService {
   // 1. GET ALL SITES FROM DATABASE WITH FILE FALLBACK
   async getAllSites(): Promise<SiteItem[]> {
     try {
-      let sites: any[] = [];
       if (this.prisma.isConnected) {
-        sites = await this.prisma.site.findMany({
+        const sites = await this.prisma.site.findMany({
           include: {
             testingResults: {
               orderBy: { testedAt: 'desc' },
@@ -130,11 +114,8 @@ export class SitesService {
           },
           orderBy: { createdAt: 'desc' },
         });
-      }
 
-      const fileSites = this.readSitesFromFile();
-
-      if (sites.length > 0) {
+        const fileSites = this.readSitesFromFile();
         const fileMap = new Map(fileSites.map((s) => [s.id, s]));
         const todayStr = new Date().toISOString().split('T')[0];
 
@@ -160,20 +141,11 @@ export class SitesService {
           };
         });
 
-        // Merge DB sites with any memory-only sites
-        const mergedMap = new Map();
-        formattedSites.forEach((s) => mergedMap.set(s.id, s));
-        fileSites.forEach((s) => {
-          if (!mergedMap.has(s.id)) {
-            mergedMap.set(s.id, s);
-          }
-        });
-        const mergedList = Array.from(mergedMap.values());
-        this.writeSitesToFile(mergedList);
-        return mergedList;
+        this.writeSitesToFile(formattedSites);
+        return formattedSites;
       }
 
-      return fileSites;
+      return this.readSitesFromFile();
     } catch (err: any) {
       console.error('❌ Error in getAllSites DB query:', err?.message || err);
       return this.readSitesFromFile();
