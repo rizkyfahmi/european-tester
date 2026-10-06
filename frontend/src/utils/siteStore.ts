@@ -48,6 +48,18 @@ export function saveStoredSites(sites: SiteItem[]): void {
   if (typeof window === 'undefined') return;
   localStorage.setItem('sites_data_v3', JSON.stringify(sites));
   window.dispatchEvent(new Event('sites_updated'));
+
+  if (sites && sites.length > 0) {
+    fetchWithTimeout(
+      `${BACKEND_API_URL}/sync`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sites }),
+      },
+      5000
+    ).catch(() => {});
+  }
 }
 
 export function getStoredLogs(): TestingLog[] {
@@ -255,21 +267,31 @@ export function ensureDailyMasterSites(sites: SiteItem[], targetDateStr?: string
 
 // NestJS Backend REST API Integration
 export async function fetchSitesFromApi(): Promise<SiteItem[]> {
+  const localSites = getStoredSites();
+  if (localSites.length > 0) {
+    fetchWithTimeout(
+      `${BACKEND_API_URL}/sync`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sites: localSites }),
+      },
+      5000
+    ).catch(() => {});
+  }
+
   try {
     const res = await fetchWithTimeout(BACKEND_API_URL, { cache: 'no-store' }, 12000);
     if (res && res.ok) {
       const json = await res.json();
       const sitesArray: SiteItem[] = Array.isArray(json) ? json : json.data;
       if (Array.isArray(sitesArray)) {
-        const localSites = getStoredSites();
-
-        // Preserve any local temporary site not yet returned by backend
+        // Preserve any local sites not yet returned by backend
         const tempLocalSites = localSites.filter((ls) => {
-          const isTemp = ls.id.startsWith('site_');
           const isSameNameInBackend = sitesArray.some(
             (bs) => bs.name.trim().toLowerCase() === ls.name.trim().toLowerCase()
           );
-          return isTemp && !isSameNameInBackend;
+          return !isSameNameInBackend;
         });
 
         const combined = [...tempLocalSites, ...sitesArray];

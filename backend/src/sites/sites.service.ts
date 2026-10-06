@@ -674,4 +674,53 @@ export class SitesService {
     this.writeSitesToFile(updated);
     return { success: true, name: cleanName };
   }
+
+  async syncSites(clientSites: SiteItem[]): Promise<SiteItem[]> {
+    if (!Array.isArray(clientSites)) return this.getAllSites();
+
+    const existing = await this.getAllSites();
+    const map = new Map<string, SiteItem>();
+
+    existing.forEach((s) => map.set(s.id, s));
+
+    clientSites.forEach((s) => {
+      if (s && s.id && s.name) {
+        if (!map.has(s.id) || !s.id.startsWith('daily_')) {
+          map.set(s.id, s);
+        }
+      }
+    });
+
+    const merged = Array.from(map.values());
+
+    if (this.prisma.isConnected) {
+      for (const site of clientSites) {
+        if (!site || !site.name) continue;
+        try {
+          if (!site.id.startsWith('daily_') && !site.id.startsWith('site_')) {
+            const statusEnum = site.status === 'BERHASIL' ? SiteStatus.SELESAI : site.status === 'GAGAL' ? SiteStatus.GAGAL_ADA_REPORT : SiteStatus.BELUM_DICEK;
+            await this.prisma.site.upsert({
+              where: { id: site.id },
+              update: {
+                name: site.name,
+                url: site.url,
+                status: statusEnum,
+              },
+              create: {
+                id: site.id,
+                name: site.name,
+                url: site.url,
+                status: statusEnum,
+              },
+            });
+          }
+        } catch {
+          // ignore DB error
+        }
+      }
+    }
+
+    this.writeSitesToFile(merged);
+    return merged;
+  }
 }

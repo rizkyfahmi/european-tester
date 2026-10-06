@@ -33,6 +33,15 @@ export class SitesController {
     };
   }
 
+  @Post('sync')
+  async syncSites(@Body() body: { sites: any[] }) {
+    const data = await this.sitesService.syncSites(body.sites || []);
+    return {
+      status: 'SUCCESS',
+      data,
+    };
+  }
+
   @Delete(':id')
   async deleteSite(@Param('id') id: string, @Query('targetDate') targetDate?: string) {
     const data = await this.sitesService.deleteSite(id, targetDate);
