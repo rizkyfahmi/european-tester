@@ -345,7 +345,7 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
     }
   };
 
-  // Admin Delete Site (Deletes date D and all subsequent dates D+)
+  // Admin Delete Site
   const handleConfirmHapusSitus = async () => {
     if (!confirmDeleteSite || isDeletingSite) return;
 
@@ -354,31 +354,19 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
     const deletedNameLower = confirmDeleteSite.name.trim().toLowerCase();
     const deletedTargetDate = getSiteDate(confirmDeleteSite);
 
-    // Optimistically update UI state: remove any entries for this site where sDate >= deletedTargetDate
+    // Optimistically update UI state: remove any entries for this site by ID or Name
     setSites((prev) =>
-      prev.filter((s) => {
-        const sNameLower = s.name.trim().toLowerCase();
-        const sDate = getSiteDate(s);
-        if (sNameLower === deletedNameLower && sDate >= deletedTargetDate) {
-          return false;
-        }
-        return true;
-      })
+      prev.filter((s) => s.id !== deletedId && s.name.trim().toLowerCase() !== deletedNameLower)
     );
 
     try {
       await deleteSiteApi(deletedId, deletedTargetDate, confirmDeleteSite.name);
-
-      // Exact 0.5 sec delay for smooth UI feedback
-      await new Promise((r) => setTimeout(r, 500));
-
-      await loadData();
       setConfirmDeleteSite(null);
       setIsDeletingSite(false);
 
       setCustomAlert({
         title: 'Berhasil Dihapus',
-        message: `Data pengujian situs "${confirmDeleteSite.name}" mulai tanggal ${formatDateIndo(deletedTargetDate)} ke atas telah dihapus. Riwayat sebelum tanggal ${formatDateIndo(deletedTargetDate)} tetap tersimpan.`,
+        message: `Situs "${confirmDeleteSite.name}" berhasil dihapus dari daftar pengujian.`,
       });
     } catch (err) {
       console.error('Error deleting site:', err);
@@ -407,39 +395,25 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
     if (selectedSiteIds.length === 0 || isDeletingSite) return;
 
     setIsDeletingSite(true);
-    const count = selectedSiteIds.length;
     const idsToDelete = [...selectedSiteIds];
     const selectedSitesList = sites.filter((s) => idsToDelete.includes(s.id));
+    const selectedNames = new Set(selectedSitesList.map((s) => s.name.trim().toLowerCase()));
 
-    // Optimistically update UI state: remove entries for selected sites where sDate >= selected target date
+    // Optimistically update UI state
     setSites((prev) =>
-      prev.filter((s) => {
-        const sNameLower = s.name.trim().toLowerCase();
-        const sDate = getSiteDate(s);
-        const isTargeted = selectedSitesList.some((sel) => {
-          const selName = sel.name.trim().toLowerCase();
-          const selDate = getSiteDate(sel);
-          return selName === sNameLower && sDate >= selDate;
-        });
-        return !isTargeted;
-      })
+      prev.filter((s) => !idsToDelete.includes(s.id) && !selectedNames.has(s.name.trim().toLowerCase()))
     );
 
     try {
       await bulkDeleteSitesApi(idsToDelete);
-
-      // Exact 0.5 sec delay for smooth UI feedback
-      await new Promise((r) => setTimeout(r, 500));
-
-      await loadData();
       setSelectedSiteIds([]);
       setIsSelectionMode(false);
       setShowBulkDeleteConfirm(false);
       setIsDeletingSite(false);
 
       setCustomAlert({
-        title: 'Berhasil Dihapus Massal',
-        message: `Berhasil menghapus ${count} data pengujian situs terpilih dari daftar pengujian.`,
+        title: 'Berhasil Dihapus',
+        message: `${idsToDelete.length} situs terpilih berhasil dihapus dari daftar pengujian.`,
       });
     } catch (err) {
       console.error('Error bulk deleting sites:', err);
