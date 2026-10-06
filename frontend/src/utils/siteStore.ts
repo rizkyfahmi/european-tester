@@ -21,10 +21,10 @@ export interface TestingLog {
   date: string;
 }
 
-const BACKEND_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1/sites';
-const BACKEND_LOGS_URL = process.env.NEXT_PUBLIC_API_URL
-  ? process.env.NEXT_PUBLIC_API_URL.replace(/\/sites\/?$/, '/sites/logs')
-  : 'http://localhost:4000/api/v1/sites/logs';
+const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://european-tester.vercel.app/api/v1';
+const cleanBaseUrl = rawApiUrl.replace(/\/+$/, '');
+const BACKEND_API_URL = cleanBaseUrl.endsWith('/sites') ? cleanBaseUrl : `${cleanBaseUrl}/sites`;
+const BACKEND_LOGS_URL = `${BACKEND_API_URL}/logs`;
 
 let customSpreadsheetUrl = 'https://docs.google.com/spreadsheets/d/1Ye-bu9EnMsPTFoftfuco_BPiicFkCUDItodPZ7KgCSI/edit?hl=id&gid=0#gid=0';
 
