@@ -46,20 +46,18 @@ export function getStoredSites(): SiteItem[] {
 
 export function saveStoredSites(sites: SiteItem[]): void {
   if (typeof window === 'undefined') return;
-  localStorage.setItem('sites_data_v3', JSON.stringify(sites));
+  localStorage.setItem('sites_data_v3', JSON.stringify(sites || []));
   window.dispatchEvent(new Event('sites_updated'));
 
-  if (sites && sites.length > 0) {
-    fetchWithTimeout(
-      `${BACKEND_API_URL}/sync`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sites }),
-      },
-      5000
-    ).catch(() => {});
-  }
+  fetchWithTimeout(
+    `${BACKEND_API_URL}/sync`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sites: sites || [] }),
+    },
+    5000
+  ).catch(() => {});
 }
 
 export function getStoredLogs(): TestingLog[] {

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 const BACKEND_URL = process.env.NESTJS_BACKEND_URL || 'https://european-tester.vercel.app/api/v1';
 
 let globalProxySitesCache: any[] = [];
+let hasReceivedClientSync = false;
 
 async function handleProxy(req: NextRequest, context: { params: Promise<{ path: string[] }> }) {
   const resolvedParams = await context.params;
@@ -20,14 +21,28 @@ async function handleProxy(req: NextRequest, context: { params: Promise<{ path: 
   });
 
   let bodyText: any = null;
+
+  // Handle DELETE request to remove site from proxy cache
+  if (req.method === 'DELETE' && subPath.startsWith('sites')) {
+    const rawTarget = decodeURIComponent(subPath.replace(/^sites\//, '')).trim().toLowerCase();
+    const cleanTarget = rawTarget.replace(/^by-name\//, '');
+    globalProxySitesCache = globalProxySitesCache.filter((s) => {
+      const sId = (s.id || '').toLowerCase();
+      const sName = (s.name || '').toLowerCase();
+      if (sId === cleanTarget || sName === cleanTarget || sId.includes(cleanTarget)) return false;
+      return true;
+    });
+  }
+
   if (['POST', 'PATCH', 'PUT'].includes(req.method)) {
     try {
       bodyText = await req.text();
       if (subPath === 'sites/sync' || subPath === 'sites') {
         const parsed = JSON.parse(bodyText);
         const incomingSites = Array.isArray(parsed) ? parsed : parsed.sites || parsed.data;
-        if (Array.isArray(incomingSites) && incomingSites.length > 0) {
+        if (Array.isArray(incomingSites)) {
           globalProxySitesCache = incomingSites;
+          hasReceivedClientSync = true;
         }
       }
     } catch {
@@ -58,14 +73,22 @@ async function handleProxy(req: NextRequest, context: { params: Promise<{ path: 
       try {
         const json = JSON.parse(dataText);
         const sitesArr = Array.isArray(json) ? json : json.data || [];
-        if (sitesArr.length === 0 && globalProxySitesCache.length > 0) {
+
+        // If client sync has occurred, prioritize globalProxySitesCache so deleted sites stay deleted
+        if (hasReceivedClientSync) {
           return NextResponse.json(
             { status: 'SUCCESS', data: globalProxySitesCache },
             { status: 200, headers: resHeaders }
           );
         }
+
         if (sitesArr.length > 0) {
           globalProxySitesCache = sitesArr;
+        } else if (globalProxySitesCache.length > 0) {
+          return NextResponse.json(
+            { status: 'SUCCESS', data: globalProxySitesCache },
+            { status: 200, headers: resHeaders }
+          );
         }
       } catch {
         // ignore
@@ -77,7 +100,7 @@ async function handleProxy(req: NextRequest, context: { params: Promise<{ path: 
       headers: resHeaders,
     });
   } catch (err: any) {
-    if (subPath === 'sites' && req.method === 'GET' && globalProxySitesCache.length > 0) {
+    if (subPath === 'sites' && req.method === 'GET') {
       return NextResponse.json(
         { status: 'SUCCESS', data: globalProxySitesCache },
         { status: 200 }
