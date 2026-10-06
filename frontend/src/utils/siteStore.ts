@@ -23,7 +23,7 @@ export interface TestingLog {
   date: string;
 }
 
-const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://european-tester.vercel.app/api/v1';
+const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://frontend-lw4m-ten.vercel.app/api/v1';
 const cleanBaseUrl = rawApiUrl.replace(/\/+$/, '');
 const BACKEND_API_URL = cleanBaseUrl.endsWith('/sites') ? cleanBaseUrl : `${cleanBaseUrl}/sites`;
 const BACKEND_LOGS_URL = `${BACKEND_API_URL}/logs`;

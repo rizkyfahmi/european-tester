@@ -19,7 +19,7 @@
  */
 
 const CONFIG = {
-  BACKEND_URL: 'https://european-tester.vercel.app/api/v1',
+  BACKEND_URL: 'https://frontend-lw4m-ten.vercel.app/api/v1',
   API_KEY: 'qa-secret-api-key-2026',
   PRIMARY_SHEET_NAME: 'Data Testing QA',
 };
@@ -353,8 +353,19 @@ function refreshAllData() {
     const res = UrlFetchApp.fetch(`${CONFIG.BACKEND_URL}/sites`, options);
     const responseCode = res.getResponseCode();
     if (responseCode === 200) {
-      const json = JSON.parse(res.getContentText());
-      sitesData = Array.isArray(json) ? json : json.data || [];
+      const text = res.getContentText();
+      let json = {};
+      try {
+        json = JSON.parse(text);
+      } catch (e) {
+        ui.alert('❌ Respon dari server bukan JSON valid. Mohon pastikan Web App berjalan normal.');
+        return;
+      }
+      if (json.error) {
+        ui.alert(`❌ Server Error: ${json.error.message || json.error}`);
+        return;
+      }
+      sitesData = Array.isArray(json) ? json : (json.data !== undefined ? json.data : []);
     } else {
       ui.alert(`❌ Gagal mengambil data situs dari Web App.\nHTTP Status Code: ${responseCode}\nPastikan Vercel Backend active & terhubung ke Database.`);
       return;
