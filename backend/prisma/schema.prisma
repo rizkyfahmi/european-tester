@@ -1,0 +1,81 @@
+// Prisma Schema for Internal Web Testing System with Bi-directional Google Sheets Sync & Optimistic Concurrency Control
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum SiteStatus {
+  BELUM_DICEK
+  SEDANG_DICEK
+  SELESAI
+  GAGAL_ADA_REPORT
+}
+
+enum TestResultStatus {
+  BERHASIL
+  GAGAL
+}
+
+enum ReportStatus {
+  ADA
+  TIDAK_ADA
+}
+
+enum AuditSource {
+  WEBSITE
+  GOOGLE_SHEETS
+}
+
+model User {
+  id        String   @id @default(uuid())
+  username  String   @unique
+  email     String?  @unique
+  password  String
+  role      String   @default("tester")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Site {
+  id             String          @id @default(uuid())
+  name           String
+  url            String
+  status         SiteStatus      @default(BELUM_DICEK)
+  currentTester  String?
+  startedAt      DateTime?
+  completedAt    DateTime?
+  version        Int             @default(1)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  testingResults TestingResult[]
+}
+
+model TestingResult {
+  id           String           @id @default(uuid())
+  siteId       String
+  site         Site             @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  testerName   String
+  result       TestResultStatus
+  reportStatus ReportStatus     @default(TIDAK_ADA)
+  notes        String?          @db.Text
+  version      Int              @default(1)
+  testedAt     DateTime         @default(now())
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+}
+
+model AuditLog {
+  id          String      @id @default(uuid())
+  recordId    String
+  entityType  String      // "SITE" | "TESTING_RESULT"
+  changedFrom String      @db.Text
+  changedTo   String      @db.Text
+  changedBy   String
+  source      AuditSource @default(WEBSITE)
+  changedAt   DateTime    @default(now())
+}
