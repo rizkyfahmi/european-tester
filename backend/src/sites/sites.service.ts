@@ -568,6 +568,11 @@ export class SitesService {
       }
     }
 
+    const fileSites = this.readSitesFromFile();
+    const siteInFile = fileSites.find(
+      (s) => s.id === cleanId || (s.name && nameSearch && s.name.trim().toLowerCase() === nameSearch.toLowerCase()),
+    );
+
     // Always attempt deleting from Prisma MySQL by ID or matching Name
     try {
       if (this.prisma.isConnected) {
@@ -576,6 +581,7 @@ export class SitesService {
             OR: [
               { id: cleanId },
               ...(nameSearch ? [{ name: { equals: nameSearch } }] : []),
+              ...(siteInFile?.name ? [{ name: { equals: siteInFile.name } }] : []),
             ],
           },
         });
@@ -584,7 +590,10 @@ export class SitesService {
           deletedSite = matchingSites[0];
           await this.prisma.site.deleteMany({
             where: {
-              id: { in: matchingSites.map((s) => s.id) },
+              OR: [
+                { id: { in: matchingSites.map((s) => s.id) } },
+                { name: { in: matchingSites.map((s) => s.name) } },
+              ],
             },
           });
 
@@ -608,44 +617,18 @@ export class SitesService {
       console.warn('Prisma delete site error:', dbErr);
     }
 
-    const fileSites = this.readSitesFromFile();
-    const targetNameLower = (nameSearch || cleanId).trim().toLowerCase();
+    const targetNameLower = (deletedSite?.name || siteInFile?.name || nameSearch || cleanId).trim().toLowerCase();
 
-    const getPreviousDateStr = (dateStr: string): string => {
-      const parts = dateStr.split('-');
-      if (parts.length !== 3) return dateStr;
-      const year = parseInt(parts[0], 10);
-      const month = parseInt(parts[1], 10) - 1;
-      const day = parseInt(parts[2], 10);
-      const d = new Date(Date.UTC(year, month, day - 1));
-      return d.toISOString().split('T')[0];
-    };
+    // Filter out all matching entries from memory/file store
+    const updated = fileSites.filter((s) => {
+      const sId = (s.id || '').trim().toLowerCase();
+      const sNameLower = (s.name || '').trim().toLowerCase();
 
-    const cutoffDate = deleteDate ? getPreviousDateStr(deleteDate) : null;
+      if (sId === cleanId.toLowerCase()) return false;
+      if (targetNameLower && (sNameLower === targetNameLower || sId.includes(targetNameLower))) return false;
 
-    // Filter out entries from memory/file store
-    const updated = fileSites
-      .filter((s) => {
-        const sId = (s.id || '').trim();
-        const sNameLower = (s.name || '').trim().toLowerCase();
-        const sDate = s.targetDate || (s.lastTestedAt ? s.lastTestedAt.split('T')[0] : '');
-
-        if (sId === cleanId) return false;
-        if (targetNameLower && (sNameLower === targetNameLower || sId.includes(targetNameLower))) return false;
-        if (deleteDate && sDate && sDate >= deleteDate && sNameLower === targetNameLower) return false;
-
-        return true;
-      })
-      .map((s) => {
-        const sNameLower = (s.name || '').trim().toLowerCase();
-        if (targetNameLower && sNameLower === targetNameLower && cutoffDate) {
-          return {
-            ...s,
-            targetEndDate: cutoffDate,
-          };
-        }
-        return s;
-      });
+      return true;
+    });
 
     this.writeSitesToFile(updated);
 
