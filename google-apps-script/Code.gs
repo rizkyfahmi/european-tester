@@ -362,8 +362,8 @@ function refreshAllData() {
     return;
   }
 
-  if (!sitesData || sitesData.length === 0) {
-    ui.alert('ℹ️ Data situs di server saat ini masih kosong (0 data).\nSilakan tambahkan situs baru melalui Web Dashboard Vercel.');
+  if (!sitesData) {
+    ui.alert('❌ Gagal mengambil data dari server.');
     return;
   }
 
