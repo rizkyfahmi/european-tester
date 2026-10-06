@@ -8,6 +8,8 @@ export interface SiteItem {
   targetDate?: string | null;
   targetEndDate?: string | null;
   notes?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
 }
 
 export interface TestingLog {
@@ -126,7 +128,7 @@ export function ensureDailyMasterSites(sites: SiteItem[], targetDateStr?: string
   const masterDateMap = new Map<string, string>();
   sites.forEach((site) => {
     const key = site.name.trim().toLowerCase();
-    const siteDate = site.targetDate || (site.lastTestedAt ? site.lastTestedAt.split('T')[0] : '');
+    const siteDate = site.targetDate || (site.lastTestedAt ? site.lastTestedAt.split('T')[0] : site.createdAt ? site.createdAt.split('T')[0] : todayStr);
     if (siteDate) {
       if (!masterDateMap.has(key)) {
         masterDateMap.set(key, siteDate);
@@ -259,12 +261,25 @@ export async function fetchSitesFromApi(): Promise<SiteItem[]> {
       const json = await res.json();
       const sitesArray: SiteItem[] = Array.isArray(json) ? json : json.data;
       if (Array.isArray(sitesArray)) {
-        if (sitesArray.length === 0) {
+        const localSites = getStoredSites();
+
+        // Preserve any local temporary site not yet returned by backend
+        const tempLocalSites = localSites.filter((ls) => {
+          const isTemp = ls.id.startsWith('site_');
+          const isSameNameInBackend = sitesArray.some(
+            (bs) => bs.name.trim().toLowerCase() === ls.name.trim().toLowerCase()
+          );
+          return isTemp && !isSameNameInBackend;
+        });
+
+        const combined = [...tempLocalSites, ...sitesArray];
+
+        if (combined.length === 0) {
           saveStoredSites([]);
           return [];
         }
 
-        const processed = ensureDailyMasterSites(sitesArray);
+        const processed = ensureDailyMasterSites(combined);
         saveStoredSites(processed);
         return processed;
       }
@@ -335,13 +350,27 @@ export async function createSiteApi(name: string, url: string, targetDate?: stri
     );
     if (res && res.ok) {
       const json = await res.json();
-      const newSite: SiteItem = json.data || json;
+      const rawApiSite: any = json.data || json;
+      const newSite: SiteItem = {
+        ...fallbackSite,
+        ...rawApiSite,
+        targetDate: rawApiSite.targetDate || finalTargetDate,
+        targetEndDate: rawApiSite.targetEndDate || finalTargetEndDate,
+      };
       const latestSites = getStoredSites();
       const synced = latestSites.map((s) => (s.name.toLowerCase() === cleanName.toLowerCase() || s.id === fallbackSite.id ? newSite : s));
       saveStoredSites(synced);
       return newSite;
+    } else if (res && !res.ok) {
+      const errJson = await res.json().catch(() => ({}));
+      const latestSites = getStoredSites().filter((s) => s.id !== fallbackSite.id && s.name.toLowerCase() !== cleanName.toLowerCase());
+      saveStoredSites(latestSites);
+      throw new Error(errJson.message || 'Gagal menambahkan situs ke server');
     }
-  } catch {
+  } catch (err: any) {
+    if (err.message && err.message.includes('Gagal')) {
+      throw err;
+    }
     // Silently fall back to local storage
   }
 
