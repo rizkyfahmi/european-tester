@@ -141,12 +141,18 @@ export class SitesService {
           };
         });
 
-        if (formattedSites.length > 0) {
-          this.writeSitesToFile(formattedSites);
-          return formattedSites;
-        }
+        // Merge DB sites and File sites so any file site created/updated from Sheets is included
+        const mergedMap = new Map<string, SiteItem>();
+        formattedSites.forEach((s) => mergedMap.set(s.name.toLowerCase(), s));
+        fileSites.forEach((s) => {
+          if (s && s.name && !mergedMap.has(s.name.toLowerCase())) {
+            mergedMap.set(s.name.toLowerCase(), s);
+          }
+        });
 
-        return fileSites;
+        const combinedList = Array.from(mergedMap.values());
+        this.writeSitesToFile(combinedList);
+        return combinedList;
       }
 
       return this.readSitesFromFile();

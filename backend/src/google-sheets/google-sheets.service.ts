@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateTestingResultRowDto, UpdateSiteRowDto } from './dto/update-single-row.dto';
-import { AuditSource } from '@prisma/client';
+import { AuditSource, SiteStatus } from '@prisma/client';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -218,19 +218,37 @@ export class GoogleSheetsService {
 
     // Synchronize to Prisma DB if available
     try {
+      const siteName = (dto.name || updatedSiteItem.name || '').trim();
+      const siteUrl = (dto.url || updatedSiteItem.url || '').trim() || `https://${siteName.toLowerCase().replace(/[^a-z0-9]/g, '')}.com`;
+      const statusEnum = (dto.status === 'BERHASIL' ? SiteStatus.SELESAI : dto.status === 'GAGAL' ? SiteStatus.GAGAL_ADA_REPORT : SiteStatus.BELUM_DICEK);
+
       const dbSite = await this.prisma.site.findFirst({
-        where: { OR: [{ id }, { name: dto.name }] },
+        where: { OR: [{ id }, { name: siteName }] },
       });
+
       if (dbSite) {
         await this.prisma.site.update({
           where: { id: dbSite.id },
           data: {
-            ...(dto.status && { status: (dto.status === 'BERHASIL' ? 'SELESAI' : dto.status === 'GAGAL' ? 'GAGAL_ADA_REPORT' : dto.status) as any }),
+            url: siteUrl,
+            status: statusEnum,
             ...(cleanTester && { currentTester: cleanTester }),
           },
         });
+      } else if (siteName) {
+        await this.prisma.site.create({
+          data: {
+            name: siteName,
+            url: siteUrl,
+            status: statusEnum,
+            currentTester: cleanTester,
+            version: 1,
+          },
+        });
       }
-    } catch (e) {}
+    } catch (e) {
+      console.warn('Prisma sync error in updateSiteRow:', e);
+    }
 
     return {
       status: 'SUCCESS',
