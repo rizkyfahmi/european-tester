@@ -522,7 +522,56 @@ export async function deleteSiteApi(siteId: string, deleteDate?: string, siteNam
     }
   }
 
-  // Filter out any entries where s.id === siteId or name matches nameToUse unconditionally
+  const getPreviousDateStr = (dateStr: string): string => {
+    const parts = dateStr.split('-');
+    if (parts.length !== 3) return dateStr;
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    const day = parseInt(parts[2], 10);
+    const d = new Date(Date.UTC(year, month, day - 1));
+    return d.toISOString().split('T')[0];
+  };
+
+  const cutoffDate = deleteDate ? getPreviousDateStr(deleteDate) : null;
+
+  if (deleteDate && cutoffDate) {
+    // Cutoff Delete: update master site with targetEndDate = cutoffDate and prune entries >= deleteDate
+    const updated = current
+      .filter((s) => {
+        const sNameLower = s.name.trim().toLowerCase();
+        const sDate = s.targetDate || (s.lastTestedAt ? s.lastTestedAt.split('T')[0] : '');
+
+        if (nameToUse && (sNameLower === nameToUse || s.id.includes(nameToUse))) {
+          if (sDate && sDate >= deleteDate) {
+            return false;
+          }
+        }
+        return true;
+      })
+      .map((s) => {
+        const sNameLower = s.name.trim().toLowerCase();
+        if (nameToUse && (sNameLower === nameToUse || s.id.includes(nameToUse))) {
+          return {
+            ...s,
+            targetEndDate: cutoffDate,
+          };
+        }
+        return s;
+      });
+
+    saveStoredSites(updated, { skipEvent: true, skipSync: true });
+
+    try {
+      const encodedId = encodeURIComponent(siteId);
+      const url = `${BACKEND_API_URL}/${encodedId}?targetDate=${encodeURIComponent(deleteDate)}`;
+      await fetchWithTimeout(url, { method: 'DELETE' }, 4000);
+    } catch {
+      // Silently fall back to local storage deletion
+    }
+    return true;
+  }
+
+  // Full Unconditional Delete (No deleteDate)
   const filtered = current.filter((s) => {
     const sId = s.id;
     const sNameLower = s.name.trim().toLowerCase();
@@ -536,18 +585,12 @@ export async function deleteSiteApi(siteId: string, deleteDate?: string, siteNam
 
   try {
     const encodedId = encodeURIComponent(siteId);
-    let url = `${BACKEND_API_URL}/${encodedId}`;
-    if (deleteDate) {
-      url += `?targetDate=${encodeURIComponent(deleteDate)}`;
-    }
-    await fetchWithTimeout(url, { method: 'DELETE' }, 4000);
-
+    await fetchWithTimeout(`${BACKEND_API_URL}/${encodedId}`, { method: 'DELETE' }, 4000);
     if (nameToUse) {
-      const nameUrl = `${BACKEND_API_URL}/by-name/${encodeURIComponent(nameToUse)}`;
-      await fetchWithTimeout(nameUrl, { method: 'DELETE' }, 4000);
+      await fetchWithTimeout(`${BACKEND_API_URL}/by-name/${encodeURIComponent(nameToUse)}`, { method: 'DELETE' }, 4000);
     }
   } catch {
-    // Silently fall back to local storage deletion
+    // Silently fall back
   }
 
   return true;

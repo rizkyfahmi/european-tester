@@ -370,21 +370,28 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
     setIsDeletingSite(true);
     const deletedId = confirmDeleteSite.id;
     const deletedNameLower = confirmDeleteSite.name.trim().toLowerCase();
-    const deletedTargetDate = getSiteDate(confirmDeleteSite);
+    const deleteDateToUse = dateFilterVal || getSiteDate(confirmDeleteSite) || getTodayDateStr();
 
-    // Optimistically update UI state: remove any entries for this site by ID or Name
+    // Optimistically update UI state: remove entries for this site starting from deleteDateToUse
     setSites((prev) =>
-      prev.filter((s) => s.id !== deletedId && s.name.trim().toLowerCase() !== deletedNameLower)
+      prev.filter((s) => {
+        const sNameLower = s.name.trim().toLowerCase();
+        const sDate = getSiteDate(s);
+        if ((s.id === deletedId || sNameLower === deletedNameLower) && sDate >= deleteDateToUse) {
+          return false;
+        }
+        return true;
+      })
     );
 
     try {
-      await deleteSiteApi(deletedId, deletedTargetDate, confirmDeleteSite.name);
+      await deleteSiteApi(deletedId, deleteDateToUse, confirmDeleteSite.name);
       setConfirmDeleteSite(null);
       setIsDeletingSite(false);
 
       setCustomAlert({
         title: 'Berhasil Dihapus',
-        message: `Situs "${confirmDeleteSite.name}" berhasil dihapus dari daftar pengujian.`,
+        message: `Situs "${confirmDeleteSite.name}" berhasil dihapus mulai tanggal ${formatDateIndo(deleteDateToUse)}. Data rekap sebelum tanggal tersebut tetap tersimpan.`,
       });
     } catch (err) {
       console.error('Error deleting site:', err);

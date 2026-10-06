@@ -582,47 +582,6 @@ export class SitesService {
       }
     }
 
-    // Always attempt deleting from Prisma MySQL by ID or matching Name
-    try {
-      if (this.prisma.isConnected) {
-        const matchingSites = await this.prisma.site.findMany({
-          where: {
-            OR: [
-              { id: cleanId },
-              ...(nameSearch ? [{ name: { equals: nameSearch } }] : []),
-            ],
-          },
-        });
-
-        if (matchingSites.length > 0) {
-          deletedSite = matchingSites[0];
-          await this.prisma.site.deleteMany({
-            where: {
-              id: { in: matchingSites.map((s) => s.id) },
-            },
-          });
-
-          try {
-            await this.prisma.auditLog.create({
-              data: {
-                recordId: deletedSite.id,
-                entityType: 'SITE',
-                changedFrom: JSON.stringify(deletedSite),
-                changedTo: 'DELETED',
-                changedBy: 'System / User',
-                source: AuditSource.WEBSITE,
-              },
-            });
-          } catch (auditErr) {
-            console.warn('Could not write audit log for delete:', auditErr);
-          }
-        }
-      }
-    } catch (dbErr) {
-      console.warn('Prisma delete site error:', dbErr);
-    }
-
-    const fileSites = this.readSitesFromFile();
     const targetNameLower = (nameSearch || cleanId).trim().toLowerCase();
 
     const getPreviousDateStr = (dateStr: string): string => {
@@ -637,22 +596,76 @@ export class SitesService {
 
     const cutoffDate = deleteDate ? getPreviousDateStr(deleteDate) : null;
 
-    // Filter out entries from memory/file store
+    if (!deleteDate) {
+      // Full Unconditional Delete (No targetDate specified)
+      if (this.prisma.isConnected) {
+        try {
+          const matchingSites = await this.prisma.site.findMany({
+            where: {
+              OR: [
+                { id: cleanId },
+                ...(nameSearch ? [{ name: { equals: nameSearch } }] : []),
+              ],
+            },
+          });
+
+          if (matchingSites.length > 0) {
+            deletedSite = matchingSites[0];
+            await this.prisma.site.deleteMany({
+              where: {
+                id: { in: matchingSites.map((s) => s.id) },
+              },
+            });
+
+            try {
+              await this.prisma.auditLog.create({
+                data: {
+                  recordId: deletedSite.id,
+                  entityType: 'SITE',
+                  changedFrom: JSON.stringify(deletedSite),
+                  changedTo: 'DELETED',
+                  changedBy: 'System / User',
+                  source: AuditSource.WEBSITE,
+                },
+              });
+            } catch (auditErr) {
+              console.warn('Could not write audit log for delete:', auditErr);
+            }
+          }
+        } catch (dbErr) {
+          console.warn('Prisma delete site error:', dbErr);
+        }
+      }
+
+      const fileSites = this.readSitesFromFile();
+      const updated = fileSites.filter((s) => {
+        const sId = (s.id || '').trim();
+        const sNameLower = (s.name || '').trim().toLowerCase();
+        return sId !== cleanId && (!targetNameLower || sNameLower !== targetNameLower);
+      });
+      this.writeSitesToFile(updated);
+      return { success: true, id: cleanId, deleteDate: null, cutoffDate: null };
+    }
+
+    // Cutoff Delete (deleteDate IS specified) -> PRESERVE historical records before deleteDate!
+    const fileSites = this.readSitesFromFile();
     const updated = fileSites
       .filter((s) => {
         const sId = (s.id || '').trim();
         const sNameLower = (s.name || '').trim().toLowerCase();
         const sDate = s.targetDate || (s.lastTestedAt ? s.lastTestedAt.split('T')[0] : '');
 
-        if (sId === cleanId) return false;
-        if (targetNameLower && (sNameLower === targetNameLower || sId.includes(targetNameLower))) return false;
-        if (deleteDate && sDate && sDate >= deleteDate && sNameLower === targetNameLower) return false;
-
+        // If s is an entry for targetNameLower, only filter out if sDate >= deleteDate
+        if (targetNameLower && (sNameLower === targetNameLower || sId.includes(targetNameLower))) {
+          if (sDate && sDate >= deleteDate) {
+            return false;
+          }
+        }
         return true;
       })
       .map((s) => {
         const sNameLower = (s.name || '').trim().toLowerCase();
-        if (targetNameLower && sNameLower === targetNameLower && cutoffDate) {
+        if (targetNameLower && (sNameLower === targetNameLower || s.id.includes(targetNameLower))) {
           return {
             ...s,
             targetEndDate: cutoffDate,
