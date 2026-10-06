@@ -588,12 +588,24 @@ export class SitesService {
 
         if (matchingSites.length > 0) {
           deletedSite = matchingSites[0];
+          const siteIds = matchingSites.map((s) => s.id);
+          const siteNames = matchingSites.map((s) => s.name);
+
+          // Delete foreign key relations first
+          try {
+            await this.prisma.testingResult.deleteMany({
+              where: {
+                OR: [
+                  { siteId: { in: siteIds } },
+                  { site: { name: { in: siteNames } } },
+                ],
+              },
+            });
+          } catch (e) {}
+
           await this.prisma.site.deleteMany({
             where: {
-              OR: [
-                { id: { in: matchingSites.map((s) => s.id) } },
-                { name: { in: matchingSites.map((s) => s.name) } },
-              ],
+              id: { in: siteIds },
             },
           });
 
@@ -645,6 +657,14 @@ export class SitesService {
     const cleanName = decodeURIComponent(name).trim();
     try {
       if (this.prisma.isConnected) {
+        try {
+          await this.prisma.testingResult.deleteMany({
+            where: {
+              site: { name: { equals: cleanName } },
+            },
+          });
+        } catch (e) {}
+
         await this.prisma.site.deleteMany({
           where: {
             name: { equals: cleanName },
