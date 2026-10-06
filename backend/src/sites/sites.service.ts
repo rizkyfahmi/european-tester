@@ -35,6 +35,23 @@ export interface TestingLog {
 export class SitesService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private static globalSitesMemory: SiteItem[] = [
+    {
+      id: 'site_default_1',
+      name: 'European QA Portal',
+      url: 'https://european-testing.com',
+      status: 'BELUM_DICEK',
+      lastTestedBy: null,
+      lastTestedAt: null,
+      targetDate: new Date().toISOString().split('T')[0],
+      targetEndDate: null,
+      notes: null,
+      version: 1,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+  ];
+
   private getSitesFilePath(): string {
     return path.join(process.cwd(), 'data', 'sites.json');
   }
@@ -48,15 +65,19 @@ export class SitesService {
       const file = this.getSitesFilePath();
       if (fs.existsSync(file)) {
         const raw = fs.readFileSync(file, 'utf-8');
-        return JSON.parse(raw);
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
       }
     } catch (err) {
       console.error('Error reading persistent sites JSON:', err);
     }
-    return [];
+    return SitesService.globalSitesMemory;
   }
 
   private writeSitesToFile(sites: SiteItem[]): void {
+    SitesService.globalSitesMemory = sites;
     try {
       const file = this.getSitesFilePath();
       const dir = path.dirname(file);
@@ -157,10 +178,14 @@ export class SitesService {
         };
       });
 
-      // Synchronize file database
-      this.writeSitesToFile(formattedSites);
-      return formattedSites;
-    } catch {
+      // Synchronize file/memory database
+      if (formattedSites.length > 0) {
+        this.writeSitesToFile(formattedSites);
+        return formattedSites;
+      }
+      return this.readSitesFromFile();
+    } catch (err: any) {
+      console.error('❌ Error in getAllSites DB query:', err?.message || err);
       return this.readSitesFromFile();
     }
   }
