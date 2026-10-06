@@ -4,9 +4,6 @@ import React from 'react';
 import HeaderNavbar from '@/components/common/HeaderNavbar';
 import DashboardOverview from '@/components/dashboard/DashboardOverview';
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
-
 export default function DashboardTesterPage() {
   return (
     <div className="w-full min-h-screen bg-[#0d0705] text-[#FFF8EE] relative overflow-x-hidden font-sans antialiased">
