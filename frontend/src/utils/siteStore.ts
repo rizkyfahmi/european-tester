@@ -459,11 +459,32 @@ export async function submitTestResultApi(
       const returnedSite = data?.data?.site || data?.site;
       const returnedLog = data?.data?.log || data?.log;
       if (returnedSite) {
-        const syncedSites = getStoredSites().map((s) =>
-          s.id === siteId || s.id === returnedSite.id || s.name.trim().toLowerCase() === targetName
-            ? { ...s, ...returnedSite }
-            : s
-        );
+        const mappedStatus =
+          returnedSite.status === 'SELESAI' || returnedSite.status === 'BERHASIL'
+            ? 'BERHASIL'
+            : returnedSite.status === 'GAGAL_ADA_REPORT' || returnedSite.status === 'GAGAL'
+            ? 'GAGAL'
+            : resultData.result;
+
+        const syncedSites = getStoredSites().map((s) => {
+          const sDate = s.targetDate || (s.lastTestedAt ? s.lastTestedAt.split('T')[0] : '');
+          const isMatch =
+            s.id === siteId ||
+            s.id === returnedSite.id ||
+            (targetName && s.name.trim().toLowerCase() === targetName && (sDate === targetDateStr || !sDate));
+
+          if (isMatch) {
+            return {
+              ...s,
+              status: mappedStatus,
+              lastTestedBy: returnedSite.currentTester || returnedSite.lastTestedBy || resultData.testerName,
+              lastTestedAt: returnedSite.completedAt || returnedSite.lastTestedAt || nowIso,
+              targetDate: s.targetDate || targetDateStr,
+              targetEndDate: s.targetEndDate || null,
+            };
+          }
+          return s;
+        });
         saveStoredSites(syncedSites);
       }
       if (returnedLog) {

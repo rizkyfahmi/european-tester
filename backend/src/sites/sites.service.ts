@@ -305,7 +305,14 @@ export class SitesService {
 
     try {
       if (this.prisma.isConnected) {
-        const site = await this.prisma.site.findUnique({ where: { id: siteId } });
+        const site = await this.prisma.site.findFirst({
+          where: {
+            OR: [
+              { id: siteId },
+              { name: (resultData as any).siteName || '' },
+            ],
+          },
+        });
         if (site) {
           const testResultEnum = resultData.result === 'BERHASIL' ? TestResultStatus.BERHASIL : TestResultStatus.GAGAL;
           const reportStatusEnum = resultData.reportStatus

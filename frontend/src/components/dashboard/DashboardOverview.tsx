@@ -201,7 +201,9 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
 
     const statusMap: Record<string, string> = {
       BERHASIL: 'Berhasil',
+      SELESAI: 'Berhasil',
       GAGAL: 'Gagal',
+      GAGAL_ADA_REPORT: 'Gagal',
       BELUM_DICEK: 'Belum Dicek',
     };
     const rowStatusIndo = statusMap[site.status] || site.status;
