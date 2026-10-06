@@ -118,67 +118,7 @@ export default function HeaderNavbar() {
                 <p className="text-[11px] text-[#FFE0B2]/70">{currentEmail}</p>
               </div>
 
-              {/* Menu Items */}
-              <div className="py-2">
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setDropdownOpen(false);
-                  }}
-                  className="px-4 py-2.5 text-[#FFF8EE]/90 hover:bg-[#FFF8EE]/10 transition flex items-center justify-between cursor-pointer"
-                >
-                  <span className="flex items-center space-x-2.5">
-                    <svg className="w-4 h-4 text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                    </svg>
-                    <span>Beralih akun</span>
-                  </span>
-                  <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded border border-amber-500/40 font-semibold">Switch</span>
-                </a>
 
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setDropdownOpen(false);
-                  }}
-                  className="px-4 py-2.5 text-[#FFF8EE]/90 hover:bg-[#FFF8EE]/10 transition flex items-center space-x-2.5 cursor-pointer"
-                >
-                  <svg className="w-4 h-4 text-[#D3A376] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-                  </svg>
-                  <span>Passwords and autofill</span>
-                </a>
-
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setDropdownOpen(false);
-                  }}
-                  className="px-4 py-2.5 text-[#FFF8EE]/90 hover:bg-[#FFF8EE]/10 transition flex items-center space-x-2.5 cursor-pointer"
-                >
-                  <svg className="w-4 h-4 text-[#D3A376] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                  <span>Manage your Account</span>
-                </a>
-
-                <a
-                  href="#"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setDropdownOpen(false);
-                  }}
-                  className="px-4 py-2.5 text-[#FFF8EE]/90 hover:bg-[#FFF8EE]/10 transition flex items-center space-x-2.5 cursor-pointer"
-                >
-                  <svg className="w-4 h-4 text-[#D3A376] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
-                  <span>Customize profile</span>
-                </a>
-              </div>
 
               {/* Log Out */}
               <div className="border-t border-[#FFE0B2]/15 py-1.5">
