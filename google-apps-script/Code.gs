@@ -52,8 +52,7 @@ function getSiteDateStr(site) {
  */
 function getTodayDateStr() {
   const today = new Date();
-  const tz = Session.getScriptTimeZone() || 'Asia/Jakarta';
-  return Utilities.formatDate(today, tz, 'yyyy-MM-dd');
+  return Utilities.formatDate(today, 'Asia/Jakarta', 'yyyy-MM-dd');
 }
 
 /**
@@ -66,8 +65,7 @@ function getNextDateStrStr(dateStr) {
   const month = parseInt(parts[1], 10) - 1;
   const day = parseInt(parts[2], 10);
   const d = new Date(Date.UTC(year, month, day + 1));
-  const tz = Session.getScriptTimeZone() || 'Asia/Jakarta';
-  return Utilities.formatDate(d, tz, 'yyyy-MM-dd');
+  return Utilities.formatDate(d, 'Asia/Jakarta', 'yyyy-MM-dd');
 }
 
 /**
@@ -143,7 +141,10 @@ function ensureDailyMasterSites(sites) {
 
   const cleanedList = updatedList.filter(function(site) {
     const sDate = site.targetDate || getSiteDateStr(site);
-    if (sDate > todayStr) return false;
+    // Only filter out future daily_ auto-generated entries, never filter real master sites!
+    if (sDate > todayStr && site.id && String(site.id).startsWith('daily_')) {
+      return false;
+    }
     if (site.id && String(site.id).startsWith('daily_')) {
       const key = site.name.trim().toLowerCase();
       const minDate = masterDateMap[key];
