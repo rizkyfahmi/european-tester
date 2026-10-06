@@ -310,13 +310,27 @@ export class SitesService {
     const finalNotes = resultData.notes?.trim() || '-';
     const nowIso = new Date().toISOString();
 
+    let targetDate = (resultData as any).targetDate || nowIso.split('T')[0];
+    let siteName = (resultData as any).siteName || '';
+
+    if (siteId.startsWith('daily_')) {
+      const match = siteId.match(/^daily_(.+)_\d{4}-\d{2}-\d{2}$/);
+      if (match && !siteName) {
+        siteName = match[1].replace(/_/g, ' ').trim();
+      }
+      const matchDate = siteId.match(/(\d{4}-\d{2}-\d{2})/);
+      if (matchDate) {
+        targetDate = matchDate[1];
+      }
+    }
+
     try {
       if (this.prisma.isConnected) {
         const site = await this.prisma.site.findFirst({
           where: {
             OR: [
               { id: siteId },
-              { name: (resultData as any).siteName || '' },
+              ...(siteName ? [{ name: { equals: siteName } }] : []),
             ],
           },
         });
@@ -395,6 +409,7 @@ export class SitesService {
             status: resultData.result,
             lastTestedBy: finalTesterName,
             lastTestedAt: nowIso,
+            targetDate: targetDate,
             notes: finalNotes,
             version: updatedSite.version,
             createdAt: updatedSite.createdAt.toISOString(),
@@ -414,7 +429,41 @@ export class SitesService {
           };
 
           const fileSites = this.readSitesFromFile();
-          const updatedFileSites = fileSites.map((s) => (s.id === siteId ? siteOutput : s));
+          const targetNameLower = (siteName || site.name).trim().toLowerCase();
+
+          let updatedAny = false;
+          const updatedFileSites = fileSites.map((s) => {
+            const sNameLower = (s.name || '').trim().toLowerCase();
+            const sDate = s.targetDate || (s.lastTestedAt ? s.lastTestedAt.split('T')[0] : '');
+            if (s.id === siteId || s.id === site.id || (sNameLower === targetNameLower && (sDate === targetDate || !sDate))) {
+              updatedAny = true;
+              return {
+                ...s,
+                status: resultData.result,
+                lastTestedBy: finalTesterName,
+                lastTestedAt: nowIso,
+                targetDate: targetDate,
+                notes: finalNotes,
+                version: (s.version || 1) + 1,
+              };
+            }
+            return s;
+          });
+
+          if (!updatedAny) {
+            updatedFileSites.unshift({
+              id: siteId,
+              name: site.name || siteName,
+              url: site.url || (resultData as any).siteUrl || '',
+              status: resultData.result,
+              lastTestedBy: finalTesterName,
+              lastTestedAt: nowIso,
+              targetDate: targetDate,
+              notes: finalNotes,
+              version: (site.version || 1) + 1,
+            });
+          }
+
           this.writeSitesToFile(updatedFileSites);
 
           const fileLogs = this.readLogsFromFile();

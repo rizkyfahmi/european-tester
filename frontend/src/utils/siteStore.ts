@@ -265,8 +265,16 @@ export function ensureDailyMasterSites(sites: SiteItem[], targetDateStr?: string
       // Prefer item with tested status over BELUM_DICEK, or real database ID over daily_ ID
       if (existing.status === 'BELUM_DICEK' && site.status !== 'BELUM_DICEK') {
         uniqueDateMap.set(key, site);
+      } else if (existing.status !== 'BELUM_DICEK' && site.status === 'BELUM_DICEK') {
+        // Keep existing tested record! Do not overwrite with untested entry!
       } else if (!site.id.startsWith('daily_') && existing.id.startsWith('daily_')) {
-        uniqueDateMap.set(key, site);
+        uniqueDateMap.set(key, {
+          ...site,
+          status: existing.status !== 'BELUM_DICEK' ? existing.status : site.status,
+          lastTestedBy: existing.lastTestedBy || site.lastTestedBy,
+          lastTestedAt: existing.lastTestedAt || site.lastTestedAt,
+          notes: existing.notes || site.notes,
+        });
       }
     }
   });

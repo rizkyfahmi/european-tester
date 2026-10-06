@@ -181,7 +181,12 @@ function ensureDailyMasterSites(sites) {
       const existing = uniqueDateMap[key];
       if (existing.status === 'BELUM_DICEK' && site.status !== 'BELUM_DICEK') {
         uniqueDateMap[key] = site;
+      } else if (existing.status !== 'BELUM_DICEK' && site.status === 'BELUM_DICEK') {
+        // Keep existing tested record! Do not overwrite with untested entry!
       } else if (site.id && !String(site.id).startsWith('daily_') && existing.id && String(existing.id).startsWith('daily_')) {
+        site.status = existing.status !== 'BELUM_DICEK' ? existing.status : site.status;
+        site.lastTestedBy = existing.lastTestedBy || site.lastTestedBy;
+        site.lastTestedAt = existing.lastTestedAt || site.lastTestedAt;
         uniqueDateMap[key] = site;
       }
     }
