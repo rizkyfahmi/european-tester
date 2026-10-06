@@ -318,25 +318,6 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
     }
 
     const targetDate = newSiteDate || dateFilterVal || getTodayDateStr();
-
-    // Check duplicate URL or Name globally
-    const normNewUrl = normalizeUrl(siteUrlTrim);
-    const normNewName = siteNameTrim.toLowerCase();
-
-    const isDuplicate = sites.some((s) => {
-      const normExistingUrl = normalizeUrl(s.url || '');
-      const normExistingName = (s.name || '').toLowerCase();
-      return normExistingUrl === normNewUrl || normExistingName === normNewName;
-    });
-
-    if (isDuplicate) {
-      setCustomAlert({
-        title: 'Situs / URL Sudah Terdaftar',
-        message: `Situs dengan URL "${siteUrlTrim}" atau nama "${siteNameTrim}" sudah terdaftar dalam sistem dan tidak boleh digandakan.`,
-      });
-      return;
-    }
-
     setIsAddingSite(true);
 
     try {

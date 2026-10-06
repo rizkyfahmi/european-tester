@@ -321,18 +321,7 @@ export async function createSiteApi(name: string, url: string, targetDate?: stri
   const normNewUrl = normalizeUrl(cleanUrl);
   const normNewName = cleanName.toLowerCase();
 
-  const exists = current.some((s) => {
-    const normExistingUrl = normalizeUrl(s.url || '');
-    const normExistingName = (s.name || '').toLowerCase();
-    return normExistingUrl === normNewUrl || normExistingName === normNewName;
-  });
-
-  if (exists) {
-    const existing = current.find((s) => s.name.toLowerCase() === normNewName || normalizeUrl(s.url) === normNewUrl);
-    return existing || null;
-  }
-
-  saveStoredSites([fallbackSite, ...current]);
+  saveStoredSites([fallbackSite, ...current.filter((s) => s.name.toLowerCase() !== cleanName.toLowerCase())]);
 
   try {
     const res = await fetchWithTimeout(
@@ -342,7 +331,7 @@ export async function createSiteApi(name: string, url: string, targetDate?: stri
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: cleanName, url: cleanUrl, targetDate: finalTargetDate, targetEndDate: finalTargetEndDate }),
       },
-      4000
+      12000
     );
     if (res && res.ok) {
       const json = await res.json();
