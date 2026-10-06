@@ -119,71 +119,61 @@ export class SitesService {
   // 1. GET ALL SITES FROM DATABASE WITH FILE FALLBACK
   async getAllSites(): Promise<SiteItem[]> {
     try {
-      let sites = await this.prisma.site.findMany({
-        include: {
-          testingResults: {
-            orderBy: { testedAt: 'desc' },
-            take: 1,
-          },
-        },
-        orderBy: { createdAt: 'desc' },
-      });
-
-      // Auto-seed default initial sites if DB is empty
-      if (sites.length === 0 && this.prisma.isConnected) {
-        try {
-          await this.prisma.site.createMany({
-            data: [
-              { name: 'European QA Portal', url: 'https://european-testing.com', status: 'BELUM_DICEK' },
-              { name: 'Testing Portal Demo', url: 'https://qa-test-demo.com', status: 'BELUM_DICEK' },
-            ],
-          });
-          sites = await this.prisma.site.findMany({
-            include: {
-              testingResults: {
-                orderBy: { testedAt: 'desc' },
-                take: 1,
-              },
+      let sites: any[] = [];
+      if (this.prisma.isConnected) {
+        sites = await this.prisma.site.findMany({
+          include: {
+            testingResults: {
+              orderBy: { testedAt: 'desc' },
+              take: 1,
             },
-            orderBy: { createdAt: 'desc' },
-          });
-        } catch {
-          // ignore seeding error
-        }
+          },
+          orderBy: { createdAt: 'desc' },
+        });
       }
 
       const fileSites = this.readSitesFromFile();
-      const fileMap = new Map(fileSites.map((s) => [s.id, s]));
-      const todayStr = new Date().toISOString().split('T')[0];
 
-      const formattedSites = sites.map((site) => {
-        const latestTest = site.testingResults[0];
-        const cached = fileMap.get(site.id);
-        const targetDate = cached?.targetDate || (site.createdAt ? site.createdAt.toISOString().split('T')[0] : todayStr);
-        const targetEndDate = cached?.targetEndDate || null;
+      if (sites.length > 0) {
+        const fileMap = new Map(fileSites.map((s) => [s.id, s]));
+        const todayStr = new Date().toISOString().split('T')[0];
 
-        return {
-          id: site.id,
-          name: site.name,
-          url: site.url,
-          status: site.status === 'SELESAI' ? 'BERHASIL' : site.status === 'GAGAL_ADA_REPORT' ? 'GAGAL' : site.status,
-          lastTestedBy: latestTest?.testerName || site.currentTester || null,
-          lastTestedAt: latestTest ? latestTest.testedAt.toISOString() : site.completedAt ? site.completedAt.toISOString() : null,
-          targetDate,
-          targetEndDate,
-          notes: latestTest?.notes || null,
-          version: site.version,
-          createdAt: site.createdAt.toISOString(),
-          updatedAt: site.updatedAt.toISOString(),
-        };
-      });
+        const formattedSites = sites.map((site) => {
+          const latestTest = site.testingResults[0];
+          const cached = fileMap.get(site.id);
+          const targetDate = cached?.targetDate || (site.createdAt ? site.createdAt.toISOString().split('T')[0] : todayStr);
+          const targetEndDate = cached?.targetEndDate || null;
 
-      // Synchronize file/memory database
-      if (formattedSites.length > 0) {
-        this.writeSitesToFile(formattedSites);
-        return formattedSites;
+          return {
+            id: site.id,
+            name: site.name,
+            url: site.url,
+            status: site.status === 'SELESAI' ? 'BERHASIL' : site.status === 'GAGAL_ADA_REPORT' ? 'GAGAL' : site.status,
+            lastTestedBy: latestTest?.testerName || site.currentTester || null,
+            lastTestedAt: latestTest ? latestTest.testedAt.toISOString() : site.completedAt ? site.completedAt.toISOString() : null,
+            targetDate,
+            targetEndDate,
+            notes: latestTest?.notes || null,
+            version: site.version,
+            createdAt: site.createdAt.toISOString(),
+            updatedAt: site.updatedAt.toISOString(),
+          };
+        });
+
+        // Merge DB sites with any memory-only sites
+        const mergedMap = new Map();
+        formattedSites.forEach((s) => mergedMap.set(s.id, s));
+        fileSites.forEach((s) => {
+          if (!mergedMap.has(s.id)) {
+            mergedMap.set(s.id, s);
+          }
+        });
+        const mergedList = Array.from(mergedMap.values());
+        this.writeSitesToFile(mergedList);
+        return mergedList;
       }
-      return this.readSitesFromFile();
+
+      return fileSites;
     } catch (err: any) {
       console.error('❌ Error in getAllSites DB query:', err?.message || err);
       return this.readSitesFromFile();
