@@ -141,12 +141,15 @@ export class SitesService {
           };
         });
 
-        // Merge DB sites and File sites so any file site created/updated from Sheets is included
+        // Merge DB sites and File sites so all daily records created/updated are preserved
         const mergedMap = new Map<string, SiteItem>();
-        formattedSites.forEach((s) => mergedMap.set(s.name.toLowerCase(), s));
+        formattedSites.forEach((s) => mergedMap.set(s.id, s));
         fileSites.forEach((s) => {
-          if (s && s.name && !mergedMap.has(s.name.toLowerCase())) {
-            mergedMap.set(s.name.toLowerCase(), s);
+          if (s && s.id) {
+            const key = s.id;
+            if (!mergedMap.has(key)) {
+              mergedMap.set(key, s);
+            }
           }
         });
 

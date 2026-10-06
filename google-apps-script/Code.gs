@@ -69,7 +69,7 @@ function getNextDateStrStr(dateStr) {
 }
 
 /**
- * Auto-generate Daily Master Entries for every date from site start date up to Today
+ * Auto-generate Daily Master Entries for every date from site start date up to Today / targetEndDate
  */
 function ensureDailyMasterSites(sites) {
   if (!sites || sites.length === 0) return [];
@@ -88,13 +88,20 @@ function ensureDailyMasterSites(sites) {
     }
   });
 
-  // Master site prototypes (unique by name)
+  // Master site prototypes (unique by name, preferring ACTIVE master sites)
   const masterMap = {};
   sites.forEach(function(site) {
     if (!site || !site.name) return;
     const key = site.name.trim().toLowerCase();
-    if (!masterMap[key] || (site.id && !String(site.id).startsWith('daily_'))) {
+    const existing = masterMap[key];
+    if (!existing) {
       masterMap[key] = site;
+    } else {
+      if (existing.id && String(existing.id).startsWith('daily_') && site.id && !String(site.id).startsWith('daily_')) {
+        masterMap[key] = site;
+      } else if (!site.targetEndDate && existing.targetEndDate) {
+        masterMap[key] = site;
+      }
     }
   });
 
@@ -141,18 +148,16 @@ function ensureDailyMasterSites(sites) {
 
   const cleanedList = updatedList.filter(function(site) {
     const sDate = site.targetDate || getSiteDateStr(site);
-    // Only filter out future daily_ auto-generated entries, never filter real master sites!
     if (sDate > todayStr && site.id && String(site.id).startsWith('daily_')) {
       return false;
     }
-    if (site.id && String(site.id).startsWith('daily_')) {
-      const key = site.name.trim().toLowerCase();
-      const minDate = masterDateMap[key];
-      const masterSite = masterMap[key];
-      const endDate = masterSite ? masterSite.targetEndDate : site.targetEndDate;
-      if (minDate && sDate < minDate) return false;
-      if (endDate && sDate > endDate) return false;
-    }
+    const key = site.name.trim().toLowerCase();
+    const minDate = masterDateMap[key];
+    const masterSite = masterMap[key];
+    const endDate = (site.id && String(site.id).startsWith('daily_')) ? (masterSite ? masterSite.targetEndDate : site.targetEndDate) : site.targetEndDate;
+
+    if (minDate && sDate < minDate) return false;
+    if (endDate && sDate > endDate) return false;
     return true;
   });
 
@@ -378,17 +383,8 @@ function refreshAllData() {
     return;
   }
 
-  // Extract unique master sites to match Web App 1-to-1 (1 site = 1 row)
-  const masterMap = {};
-  sitesData.forEach(function(site) {
-    if (!site || !site.name) return;
-    const key = site.name.trim().toLowerCase();
-    if (!masterMap[key] || (site.id && !String(site.id).startsWith('daily_'))) {
-      masterMap[key] = site;
-    }
-  });
-
-  sitesData = Object.keys(masterMap).map(function(k) { return masterMap[k]; });
+  // Process daily master entries for all active dates from site start date up to Today / targetEndDate
+  sitesData = ensureDailyMasterSites(sitesData);
 
   // Sort data strictly by Date (newest first), then by Nama Situs alphabetically
   sitesData.sort(function(a, b) {
