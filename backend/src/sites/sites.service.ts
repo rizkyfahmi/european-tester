@@ -51,7 +51,7 @@ export class SitesService {
       if (fs.existsSync(file)) {
         const raw = fs.readFileSync(file, 'utf-8');
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           return parsed;
         }
       }
@@ -155,16 +155,18 @@ export class SitesService {
   // 2. GET SITE DETAIL BY ID
   async getSiteById(id: string) {
     try {
-      const site = await this.prisma.site.findUnique({
-        where: { id },
-        include: {
-          testingResults: {
-            orderBy: { testedAt: 'desc' },
+      if (this.prisma.isConnected) {
+        const site = await this.prisma.site.findUnique({
+          where: { id },
+          include: {
+            testingResults: {
+              orderBy: { testedAt: 'desc' },
+            },
           },
-        },
-      });
+        });
 
-      if (site) return site;
+        if (site) return site;
+      }
     } catch {
       // Use local JSON fallback
     }
@@ -189,7 +191,7 @@ export class SitesService {
     const normNewName = name.toLowerCase();
 
     // Check duplicate in file/database
-    const existingSites = this.readSitesFromFile();
+    const existingSites = await this.getAllSites();
     const isDup = existingSites.some((s) => {
       const normExistingUrl = normalizeUrl(s.url || '');
       const normExistingName = (s.name || '').toLowerCase();
@@ -220,58 +222,62 @@ export class SitesService {
     };
 
     try {
-      const newSite = await this.prisma.site.create({
-        data: {
-          name,
-          url: formattedUrl,
-          status: SiteStatus.BELUM_DICEK,
-          version: 1,
-        },
-      });
-
-      // Record Audit Log
-      try {
-        await this.prisma.auditLog.create({
+      if (this.prisma.isConnected) {
+        const newSite = await this.prisma.site.create({
           data: {
-            recordId: newSite.id,
-            entityType: 'SITE',
-            changedFrom: 'NEW_RECORD',
-            changedTo: JSON.stringify(newSite),
-            changedBy: 'System / User',
-            source: AuditSource.WEBSITE,
+            name,
+            url: formattedUrl,
+            status: SiteStatus.BELUM_DICEK,
+            version: 1,
           },
         });
-      } catch (auditErr) {
-        console.warn('Could not write audit log:', auditErr);
+
+        // Record Audit Log
+        try {
+          await this.prisma.auditLog.create({
+            data: {
+              recordId: newSite.id,
+              entityType: 'SITE',
+              changedFrom: 'NEW_RECORD',
+              changedTo: JSON.stringify(newSite),
+              changedBy: 'System / User',
+              source: AuditSource.WEBSITE,
+            },
+          });
+        } catch (auditErr) {
+          console.warn('Could not write audit log:', auditErr);
+        }
+
+        const createdItem: SiteItem = {
+          id: newSite.id,
+          name: newSite.name,
+          url: newSite.url,
+          status: 'BELUM_DICEK',
+          lastTestedBy: null,
+          lastTestedAt: null,
+          targetDate,
+          targetEndDate,
+          notes: null,
+          version: newSite.version,
+          createdAt: newSite.createdAt.toISOString(),
+          updatedAt: newSite.updatedAt.toISOString(),
+        };
+
+        // Persist to local/memory store
+        const fileSites = this.readSitesFromFile();
+        this.writeSitesToFile([createdItem, ...fileSites.filter((s) => s.id !== createdItem.id)]);
+
+        return createdItem;
       }
-
-      const createdItem: SiteItem = {
-        id: newSite.id,
-        name: newSite.name,
-        url: newSite.url,
-        status: 'BELUM_DICEK',
-        lastTestedBy: null,
-        lastTestedAt: null,
-        targetDate,
-        targetEndDate,
-        notes: null,
-        version: newSite.version,
-        createdAt: newSite.createdAt.toISOString(),
-        updatedAt: newSite.updatedAt.toISOString(),
-      };
-
-      // Also persist to JSON file store
-      const fileSites = this.readSitesFromFile();
-      this.writeSitesToFile([createdItem, ...fileSites.filter((s) => s.id !== createdItem.id)]);
-
-      return createdItem;
-    } catch {
-      const fileSites = this.readSitesFromFile();
-      const updated = [fallbackSite, ...fileSites];
-      this.writeSitesToFile(updated);
-
-      return fallbackSite;
+    } catch (dbErr) {
+      console.warn('Prisma create site fallback triggered:', dbErr);
     }
+
+    const fileSites = this.readSitesFromFile();
+    const updated = [fallbackSite, ...fileSites];
+    this.writeSitesToFile(updated);
+
+    return fallbackSite;
   }
 
   // 4. POST TESTING RESULT TO DATABASE
@@ -284,117 +290,120 @@ export class SitesService {
     const nowIso = new Date().toISOString();
 
     try {
-      const site = await this.prisma.site.findUnique({ where: { id: siteId } });
-      if (site) {
-        const testResultEnum = resultData.result === 'BERHASIL' ? TestResultStatus.BERHASIL : TestResultStatus.GAGAL;
-        const reportStatusEnum = resultData.reportStatus
-          ? resultData.reportStatus === 'ADA'
-            ? ReportStatus.ADA
-            : ReportStatus.TIDAK_ADA
-          : resultData.result === 'GAGAL'
-            ? ReportStatus.ADA
-            : ReportStatus.TIDAK_ADA;
+      if (this.prisma.isConnected) {
+        const site = await this.prisma.site.findUnique({ where: { id: siteId } });
+        if (site) {
+          const testResultEnum = resultData.result === 'BERHASIL' ? TestResultStatus.BERHASIL : TestResultStatus.GAGAL;
+          const reportStatusEnum = resultData.reportStatus
+            ? resultData.reportStatus === 'ADA'
+              ? ReportStatus.ADA
+              : ReportStatus.TIDAK_ADA
+            : resultData.result === 'GAGAL'
+              ? ReportStatus.ADA
+              : ReportStatus.TIDAK_ADA;
 
-        const existingResult = await this.prisma.testingResult.findFirst({
-          where: { siteId: site.id },
-          orderBy: { createdAt: 'desc' },
-        });
+          const existingResult = await this.prisma.testingResult.findFirst({
+            where: { siteId: site.id },
+            orderBy: { createdAt: 'desc' },
+          });
 
-        let newTestingResult: any;
-        if (existingResult) {
-          newTestingResult = await this.prisma.testingResult.update({
-            where: { id: existingResult.id },
+          let newTestingResult: any;
+          if (existingResult) {
+            newTestingResult = await this.prisma.testingResult.update({
+              where: { id: existingResult.id },
+              data: {
+                testerName: finalTesterName,
+                result: testResultEnum,
+                reportStatus: reportStatusEnum,
+                notes: finalNotes,
+                version: existingResult.version + 1,
+                testedAt: new Date(),
+              },
+            });
+          } else {
+            newTestingResult = await this.prisma.testingResult.create({
+              data: {
+                siteId: site.id,
+                testerName: finalTesterName,
+                result: testResultEnum,
+                reportStatus: reportStatusEnum,
+                notes: finalNotes,
+                version: 1,
+                testedAt: new Date(),
+              },
+            });
+          }
+
+          const updatedSite = await this.prisma.site.update({
+            where: { id: site.id },
             data: {
-              testerName: finalTesterName,
-              result: testResultEnum,
-              reportStatus: reportStatusEnum,
-              notes: finalNotes,
-              testedAt: new Date(),
-              version: existingResult.version + 1,
+              status: resultData.result === 'BERHASIL' ? SiteStatus.SELESAI : SiteStatus.GAGAL_ADA_REPORT,
+              currentTester: finalTesterName,
+              completedAt: new Date(),
+              version: site.version + 1,
             },
           });
-        } else {
-          newTestingResult = await this.prisma.testingResult.create({
-            data: {
-              siteId: site.id,
-              testerName: finalTesterName,
-              result: testResultEnum,
-              reportStatus: reportStatusEnum,
-              notes: finalNotes,
-              version: 1,
-            },
-          });
+
+          // Audit Log
+          try {
+            await this.prisma.auditLog.create({
+              data: {
+                recordId: updatedSite.id,
+                entityType: 'TESTING_RESULT',
+                changedFrom: JSON.stringify(site),
+                changedTo: JSON.stringify(updatedSite),
+                changedBy: finalTesterName,
+                source: AuditSource.WEBSITE,
+              },
+            });
+          } catch (auditErr) {
+            console.warn('Audit log write error:', auditErr);
+          }
+
+          const siteOutput: SiteItem = {
+            id: updatedSite.id,
+            name: updatedSite.name,
+            url: updatedSite.url,
+            status: resultData.result,
+            lastTestedBy: finalTesterName,
+            lastTestedAt: nowIso,
+            notes: finalNotes,
+            version: updatedSite.version,
+            createdAt: updatedSite.createdAt.toISOString(),
+            updatedAt: updatedSite.updatedAt.toISOString(),
+          };
+
+          const logOutput: TestingLog = {
+            id: newTestingResult.id,
+            siteId: updatedSite.id,
+            siteName: updatedSite.name,
+            siteUrl: updatedSite.url,
+            testerName: finalTesterName,
+            result: resultData.result,
+            notes: finalNotes,
+            date: nowIso,
+            version: newTestingResult.version,
+          };
+
+          const fileSites = this.readSitesFromFile();
+          const updatedFileSites = fileSites.map((s) => (s.id === siteId ? siteOutput : s));
+          this.writeSitesToFile(updatedFileSites);
+
+          const fileLogs = this.readLogsFromFile();
+          const existingLogIndex = fileLogs.findIndex(
+            (l) => l.siteId === siteId || (l.siteName && l.siteName.toLowerCase() === siteOutput.name.toLowerCase()),
+          );
+          let updatedLogsList: TestingLog[];
+          if (existingLogIndex >= 0) {
+            updatedLogsList = [...fileLogs];
+            updatedLogsList[existingLogIndex] = logOutput;
+          } else {
+            updatedLogsList = [logOutput, ...fileLogs];
+          }
+          this.writeLogsToFile(updatedLogsList);
+
+          return { site: siteOutput, log: logOutput };
         }
-
-        const newSiteStatus = resultData.result === 'BERHASIL' ? SiteStatus.SELESAI : SiteStatus.GAGAL_ADA_REPORT;
-        const nextSiteVersion = site.version + 1;
-
-        const updatedSite = await this.prisma.site.update({
-          where: { id: siteId },
-          data: {
-            status: newSiteStatus,
-            currentTester: finalTesterName,
-            completedAt: new Date(),
-            version: nextSiteVersion,
-          },
-        });
-
-        try {
-          await this.prisma.auditLog.create({
-            data: {
-              recordId: newTestingResult.id,
-              entityType: 'TESTING_RESULT',
-              changedFrom: JSON.stringify({ previousStatus: site.status, version: site.version }),
-              changedTo: JSON.stringify({ result: newTestingResult.result, reportStatus: newTestingResult.reportStatus, notes: newTestingResult.notes }),
-              changedBy: newTestingResult.testerName,
-              source: AuditSource.WEBSITE,
-            },
-          });
-        } catch (auditErr) {
-          console.warn('Could not write audit log:', auditErr);
-        }
-
-        const siteOutput: SiteItem = {
-          id: updatedSite.id,
-          name: updatedSite.name,
-          url: updatedSite.url,
-          status: resultData.result,
-          lastTestedBy: updatedSite.currentTester,
-          lastTestedAt: newTestingResult.testedAt.toISOString(),
-          notes: newTestingResult.notes,
-          version: updatedSite.version,
-        };
-
-        const logOutput: TestingLog = {
-          id: newTestingResult.id,
-          siteId: updatedSite.id,
-          siteName: updatedSite.name,
-          siteUrl: updatedSite.url,
-          testerName: newTestingResult.testerName,
-          result: resultData.result,
-          notes: newTestingResult.notes || '',
-          date: newTestingResult.testedAt.toISOString(),
-        };
-
-        // Sync with local file store
-        const fileSites = this.readSitesFromFile();
-        const updatedFileSites = fileSites.map((s) => (s.id === siteId ? siteOutput : s));
-        this.writeSitesToFile(updatedFileSites);
-
-        const fileLogs = this.readLogsFromFile();
-        const existingLogIndex = fileLogs.findIndex(
-          (l) => l.siteId === siteId || (l.siteName && l.siteName.toLowerCase() === siteOutput.name.toLowerCase()),
-        );
-        let updatedLogsList: TestingLog[];
-        if (existingLogIndex >= 0) {
-          updatedLogsList = [...fileLogs];
-          updatedLogsList[existingLogIndex] = logOutput;
-        } else {
-          updatedLogsList = [logOutput, ...fileLogs];
-        }
-        this.writeLogsToFile(updatedLogsList);
-
-        return { site: siteOutput, log: logOutput };
       }
     } catch {
       // Use persistent file store fallback
@@ -455,29 +464,33 @@ export class SitesService {
   // 5. GET LOGS FROM DATABASE WITH FILE FALLBACK
   async getLogs(): Promise<TestingLog[]> {
     try {
-      const results = await this.prisma.testingResult.findMany({
-        include: { site: true },
-        orderBy: { testedAt: 'desc' },
-      });
+      if (this.prisma.isConnected) {
+        const results = await this.prisma.testingResult.findMany({
+          include: { site: true },
+          orderBy: { testedAt: 'desc' },
+        });
 
-      const formattedLogs = results.map((log) => ({
-        id: log.id,
-        siteId: log.siteId,
-        siteName: log.site?.name || 'Situs QA',
-        siteUrl: log.site?.url || '',
-        testerName: log.testerName,
-        result: log.result === 'BERHASIL' ? 'BERHASIL' : 'GAGAL',
-        reportStatus: log.reportStatus,
-        notes: log.notes || '',
-        date: log.testedAt.toISOString(),
-        version: log.version,
-      }));
+        const formattedLogs = results.map((log) => ({
+          id: log.id,
+          siteId: log.siteId,
+          siteName: log.site?.name || 'Situs QA',
+          siteUrl: log.site?.url || '',
+          testerName: log.testerName,
+          result: log.result === 'BERHASIL' ? 'BERHASIL' : 'GAGAL',
+          reportStatus: log.reportStatus,
+          notes: log.notes || '',
+          date: log.testedAt.toISOString(),
+          version: log.version,
+        }));
 
-      this.writeLogsToFile(formattedLogs);
-      return formattedLogs;
+        this.writeLogsToFile(formattedLogs);
+        return formattedLogs;
+      }
     } catch {
-      return this.readLogsFromFile();
+      // ignore error and fallback
     }
+
+    return this.readLogsFromFile();
   }
 
   // 6. GET DASHBOARD OVERVIEW
@@ -526,17 +539,18 @@ export class SitesService {
     return '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
   }
 
-  // 8. DELETE SITE FROM SPECIFIC DATE ONWARDS (DELETES DATE >= deleteDate, KEEPS DATE < deleteDate)
+  // 8. DELETE SITE FROM SPECIFIC DATE ONWARDS (DELETES FROM DATABASE & MEMORY STORE)
   async deleteSite(id: string, targetDateQuery?: string) {
     let deletedSite: any = null;
     const cleanId = decodeURIComponent(id).trim();
 
     let nameSearch = '';
     let deleteDate = targetDateQuery ? targetDateQuery.trim() : '';
+
     if (cleanId.startsWith('daily_')) {
-      const parts = cleanId.split('_');
-      if (parts.length >= 2) {
-        nameSearch = parts[1].replace(/_/g, ' ').trim();
+      const match = cleanId.match(/^daily_(.+)_\d{4}-\d{2}-\d{2}$/);
+      if (match) {
+        nameSearch = match[1].replace(/_/g, ' ').trim();
       }
       const matchDate = cleanId.match(/(\d{4}-\d{2}-\d{2})/);
       if (matchDate && !deleteDate) {
@@ -544,8 +558,48 @@ export class SitesService {
       }
     }
 
+    // Always attempt deleting from Prisma MySQL by ID or matching Name
+    try {
+      if (this.prisma.isConnected) {
+        const matchingSites = await this.prisma.site.findMany({
+          where: {
+            OR: [
+              { id: cleanId },
+              ...(nameSearch ? [{ name: { equals: nameSearch } }] : []),
+            ],
+          },
+        });
+
+        if (matchingSites.length > 0) {
+          deletedSite = matchingSites[0];
+          await this.prisma.site.deleteMany({
+            where: {
+              id: { in: matchingSites.map((s) => s.id) },
+            },
+          });
+
+          try {
+            await this.prisma.auditLog.create({
+              data: {
+                recordId: deletedSite.id,
+                entityType: 'SITE',
+                changedFrom: JSON.stringify(deletedSite),
+                changedTo: 'DELETED',
+                changedBy: 'System / User',
+                source: AuditSource.WEBSITE,
+              },
+            });
+          } catch (auditErr) {
+            console.warn('Could not write audit log for delete:', auditErr);
+          }
+        }
+      }
+    } catch (dbErr) {
+      console.warn('Prisma delete site error:', dbErr);
+    }
+
     const fileSites = this.readSitesFromFile();
-    const targetNameLower = (nameSearch || '').trim().toLowerCase();
+    const targetNameLower = (nameSearch || cleanId).trim().toLowerCase();
 
     const getPreviousDateStr = (dateStr: string): string => {
       const parts = dateStr.split('-');
@@ -559,7 +613,7 @@ export class SitesService {
 
     const cutoffDate = deleteDate ? getPreviousDateStr(deleteDate) : null;
 
-    // Remove entries where targetDate >= deleteDate, update cutoff date targetEndDate for remaining entries < deleteDate
+    // Filter out entries from memory/file store
     const updated = fileSites
       .filter((s) => {
         const sId = (s.id || '').trim();
@@ -567,9 +621,9 @@ export class SitesService {
         const sDate = s.targetDate || (s.lastTestedAt ? s.lastTestedAt.split('T')[0] : '');
 
         if (sId === cleanId) return false;
-        if (targetNameLower && deleteDate && sNameLower === targetNameLower && sDate >= deleteDate) {
-          return false;
-        }
+        if (targetNameLower && (sNameLower === targetNameLower || sId.includes(targetNameLower))) return false;
+        if (deleteDate && sDate && sDate >= deleteDate && sNameLower === targetNameLower) return false;
+
         return true;
       })
       .map((s) => {
@@ -583,44 +637,6 @@ export class SitesService {
         return s;
       });
 
-    // Check if any other date instances remain for this site name
-    const remainingForName = updated.filter((s) => s.name.trim().toLowerCase() === targetNameLower);
-    if (remainingForName.length === 0) {
-      try {
-        const existing = await this.prisma.site.findFirst({
-          where: {
-            OR: [
-              { id: cleanId },
-              ...(nameSearch ? [{ name: nameSearch }] : []),
-            ],
-          },
-        });
-        if (existing) {
-          deletedSite = existing;
-          await this.prisma.site.deleteMany({
-            where: { id: existing.id },
-          });
-
-          try {
-            await this.prisma.auditLog.create({
-              data: {
-                recordId: existing.id,
-                entityType: 'SITE',
-                changedFrom: JSON.stringify(existing),
-                changedTo: 'DELETED',
-                changedBy: 'System / User',
-                source: AuditSource.WEBSITE,
-              },
-            });
-          } catch (auditErr) {
-            console.warn('Could not write audit log for delete:', auditErr);
-          }
-        }
-      } catch {
-        // Silently proceed
-      }
-    }
-
     this.writeSitesToFile(updated);
 
     return {
@@ -633,23 +649,29 @@ export class SitesService {
   }
 
   async deleteSiteByName(name: string) {
-    const cleanName = decodeURIComponent(name).trim().toLowerCase();
+    const cleanName = decodeURIComponent(name).trim();
     try {
-      await this.prisma.site.deleteMany({
-        where: { name: cleanName },
-      });
-    } catch {}
+      if (this.prisma.isConnected) {
+        await this.prisma.site.deleteMany({
+          where: {
+            name: { equals: cleanName },
+          },
+        });
+      }
+    } catch (dbErr) {
+      console.warn('Prisma deleteMany by name error:', dbErr);
+    }
 
     const fileSites = this.readSitesFromFile();
     const updated = fileSites.filter((s) => {
       const sNameLower = (s.name || '').trim().toLowerCase();
       const sId = (s.id || '').trim().toLowerCase();
-      if (sNameLower === cleanName) return false;
-      if (sId.includes(cleanName)) return false;
+      if (sNameLower === cleanName.toLowerCase()) return false;
+      if (sId.includes(cleanName.toLowerCase())) return false;
       return true;
     });
+
     this.writeSitesToFile(updated);
     return { success: true, name: cleanName };
   }
 }
-
