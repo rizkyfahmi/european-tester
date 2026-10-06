@@ -232,17 +232,15 @@ function saveSelectedRow() {
   const testerName = String(rowValues[3] || '').trim();
   const targetDateInput = String(rowValues[4] || '').trim();
   let statusInput = String(rowValues[5] || '').trim().toUpperCase();
-  const id = String(rowValues[6] || '').trim();
-  const version = parseInt(rowValues[7], 10) || 1;
-
-  if (!id) {
-    ui.alert('⚠️ System ID tidak ditemukan pada baris ini.');
-    return;
-  }
-
+  let effectiveId = id;
   if (!name) {
     ui.alert('❌ Validation Failed: Nama Situs wajib diisi.');
     return;
+  }
+
+  if (!effectiveId) {
+    effectiveId = 'site_sheet_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
+    sheet.getRange(rowIndex, 7).setValue(effectiveId);
   }
 
   // Normalization
@@ -289,7 +287,7 @@ function saveSelectedRow() {
   };
 
   try {
-    const apiUrl = `${CONFIG.BACKEND_URL}/google-sheets/sites/${encodeURIComponent(id)}`;
+    const apiUrl = `${CONFIG.BACKEND_URL}/google-sheets/sites/${encodeURIComponent(effectiveId)}`;
     const response = UrlFetchApp.fetch(apiUrl, options);
     const responseCode = response.getResponseCode();
     const responseText = response.getContentText();
@@ -682,7 +680,13 @@ function saveRowByNumber(rowIndex) {
   const id = String(rowValues[6] || '').trim();
   const version = parseInt(rowValues[7], 10) || 1;
 
-  if (!id || !name) return;
+  if (!name) return;
+
+  let effectiveId = id;
+  if (!effectiveId) {
+    effectiveId = 'site_sheet_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
+    sheet.getRange(rowIndex, 7).setValue(effectiveId);
+  }
 
   let statusEnum = 'BELUM_DICEK';
   if (statusInput === 'BERHASIL' || statusInput === 'SUCCESS' || statusInput === 'PASSED' || statusInput === 'SELESAI') {
@@ -722,7 +726,7 @@ function saveRowByNumber(rowIndex) {
   };
 
   try {
-    const apiUrl = `${CONFIG.BACKEND_URL}/google-sheets/sites/${encodeURIComponent(id)}`;
+    const apiUrl = `${CONFIG.BACKEND_URL}/google-sheets/sites/${encodeURIComponent(effectiveId)}`;
     UrlFetchApp.fetch(apiUrl, options);
   } catch (err) {}
 }
