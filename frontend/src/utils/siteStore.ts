@@ -303,7 +303,16 @@ export async function fetchSitesFromApi(): Promise<SiteItem[]> {
           }
           return sitesArray;
         } else if (localSites.length > 0) {
-          // Retain local sites if API returned empty array during network glitch
+          // Auto-sync local storage sites back to server database if server returned empty data
+          fetchWithTimeout(
+            `${BACKEND_API_URL}/sync`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ sites: localSites }),
+            },
+            5000
+          ).catch(() => {});
           return localSites;
         }
         return sitesArray;
