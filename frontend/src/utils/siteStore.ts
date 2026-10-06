@@ -265,49 +265,22 @@ export function ensureDailyMasterSites(sites: SiteItem[], targetDateStr?: string
 
 // NestJS Backend REST API Integration
 export async function fetchSitesFromApi(): Promise<SiteItem[]> {
-  const localSites = getStoredSites();
-  if (localSites.length > 0) {
-    fetchWithTimeout(
-      `${BACKEND_API_URL}/sync`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sites: localSites }),
-      },
-      5000
-    ).catch(() => {});
-  }
-
   try {
     const res = await fetchWithTimeout(BACKEND_API_URL, { cache: 'no-store' }, 12000);
     if (res && res.ok) {
       const json = await res.json();
       const sitesArray: SiteItem[] = Array.isArray(json) ? json : json.data;
       if (Array.isArray(sitesArray)) {
-        // Preserve any local sites not yet returned by backend
-        const tempLocalSites = localSites.filter((ls) => {
-          const isSameNameInBackend = sitesArray.some(
-            (bs) => bs.name.trim().toLowerCase() === ls.name.trim().toLowerCase()
-          );
-          return !isSameNameInBackend;
-        });
-
-        const combined = [...tempLocalSites, ...sitesArray];
-
-        if (combined.length === 0) {
-          saveStoredSites([]);
-          return [];
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('sites_data_v3', JSON.stringify(sitesArray));
         }
-
-        const processed = ensureDailyMasterSites(combined);
-        saveStoredSites(processed);
-        return processed;
+        return sitesArray;
       }
     }
   } catch {
     // Silently fall back to local storage
   }
-  return ensureDailyMasterSites(getStoredSites());
+  return getStoredSites();
 }
 
 export async function fetchLogsFromApi(): Promise<TestingLog[]> {
