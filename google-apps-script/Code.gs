@@ -614,7 +614,7 @@ function deleteSelectedRow() {
       } catch (e) {}
     }
 
-    if (!success && item.name) {
+    if (item.name) {
       try {
         const deleteByNameUrl = `${CONFIG.BACKEND_URL}/sites/by-name/${encodeURIComponent(item.name)}`;
         const res = UrlFetchApp.fetch(deleteByNameUrl, options);
@@ -631,4 +631,98 @@ function deleteSelectedRow() {
 
   refreshAllData();
   ui.alert(`✅ Success: ${deletedCount} situs berhasil dihapus dari Web App, Database, dan Spreadsheet!`);
+}
+
+/**
+ * OnEdit Event Trigger: Automatic cell formatting & auto-sync when editing Google Sheets directly
+ */
+function onEdit(e) {
+  if (!e || !e.range) return;
+  const sheet = e.range.getSheet();
+  if (sheet.getName() !== CONFIG.PRIMARY_SHEET_NAME) return;
+
+  const row = e.range.getRow();
+  const col = e.range.getColumn();
+
+  if (row <= 1) return;
+
+  // Realtime Status Badge Styling (Col F / 6)
+  if (col === 6) {
+    const val = String(e.value || '').trim().toUpperCase();
+    const cell = sheet.getRange(row, 6);
+    cell.setFontWeight('bold').setHorizontalAlignment('center');
+    if (val === 'BERHASIL' || val === 'SUCCESS' || val === 'PASSED' || val === 'SELESAI') {
+      cell.setBackground('#dcfce7').setFontColor('#15803d');
+    } else if (val === 'GAGAL' || val === 'FAILED' || val === 'FAIL') {
+      cell.setBackground('#fee2e2').setFontColor('#b91c1c');
+    } else {
+      cell.setBackground('#fef3c7').setFontColor('#b45309');
+    }
+  }
+
+  // Auto-save edited row to Web App silently
+  if (col >= 2 && col <= 6) {
+    saveRowByNumber(row);
+  }
+}
+
+/**
+ * Helper to Save Row by Row Index silently without popups
+ */
+function saveRowByNumber(rowIndex) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(CONFIG.PRIMARY_SHEET_NAME);
+  if (!sheet) return;
+
+  const rowValues = sheet.getRange(rowIndex, 1, 1, 8).getValues()[0];
+  const name = String(rowValues[1] || '').trim();
+  const url = String(rowValues[2] || '').trim();
+  const testerName = String(rowValues[3] || '').trim();
+  const targetDateInput = String(rowValues[4] || '').trim();
+  let statusInput = String(rowValues[5] || '').trim().toUpperCase();
+  const id = String(rowValues[6] || '').trim();
+  const version = parseInt(rowValues[7], 10) || 1;
+
+  if (!id || !name) return;
+
+  let statusEnum = 'BELUM_DICEK';
+  if (statusInput === 'BERHASIL' || statusInput === 'SUCCESS' || statusInput === 'PASSED' || statusInput === 'SELESAI') {
+    statusEnum = 'BERHASIL';
+  } else if (statusInput === 'GAGAL' || statusInput === 'FAILED' || statusInput === 'FAIL') {
+    statusEnum = 'GAGAL';
+  }
+
+  let rowTargetDate = targetDateInput;
+  if (!rowTargetDate || !/^\d{4}-\d{2}-\d{2}$/.test(rowTargetDate)) {
+    rowTargetDate = getTodayDateStr();
+  }
+
+  const payload = {
+    name: name,
+    url: url,
+    status: statusEnum,
+    targetDate: rowTargetDate,
+    currentTester: (testerName && testerName !== '-' && testerName !== 'Google Sheets User') ? testerName : null,
+    testerName: (testerName && testerName !== '-' && testerName !== 'Google Sheets User') ? testerName : null,
+    result: statusEnum === 'BERHASIL' ? 'BERHASIL' : statusEnum === 'GAGAL' ? 'GAGAL' : 'BERHASIL',
+    notes: '',
+    version: version,
+    source: 'GOOGLE_SHEETS',
+  };
+
+  const options = {
+    method: 'patch',
+    contentType: 'application/json',
+    headers: {
+      'X-API-KEY': CONFIG.API_KEY,
+      'Authorization': 'Bearer ' + CONFIG.API_KEY,
+      'ngrok-skip-browser-warning': 'true',
+    },
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true,
+  };
+
+  try {
+    const apiUrl = `${CONFIG.BACKEND_URL}/google-sheets/sites/${encodeURIComponent(id)}`;
+    UrlFetchApp.fetch(apiUrl, options);
+  } catch (err) {}
 }

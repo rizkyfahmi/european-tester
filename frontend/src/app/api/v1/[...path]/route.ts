@@ -73,23 +73,7 @@ async function handleProxy(req: NextRequest, context: { params: Promise<{ path: 
       try {
         const json = JSON.parse(dataText);
         const sitesArr = Array.isArray(json) ? json : json.data || [];
-
-        // If client sync has occurred, prioritize globalProxySitesCache so deleted sites stay deleted
-        if (hasReceivedClientSync) {
-          return NextResponse.json(
-            { status: 'SUCCESS', data: globalProxySitesCache },
-            { status: 200, headers: resHeaders }
-          );
-        }
-
-        if (sitesArr.length > 0) {
-          globalProxySitesCache = sitesArr;
-        } else if (globalProxySitesCache.length > 0) {
-          return NextResponse.json(
-            { status: 'SUCCESS', data: globalProxySitesCache },
-            { status: 200, headers: resHeaders }
-          );
-        }
+        globalProxySitesCache = sitesArr;
       } catch {
         // ignore
       }
