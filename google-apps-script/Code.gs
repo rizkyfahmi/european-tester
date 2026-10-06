@@ -368,8 +368,17 @@ function refreshAllData() {
     return;
   }
 
-  // Auto-generate daily entries for all dates from start date up to today
-  sitesData = ensureDailyMasterSites(sitesData);
+  // Extract unique master sites to match Web App 1-to-1 (1 site = 1 row)
+  const masterMap = {};
+  sitesData.forEach(function(site) {
+    if (!site || !site.name) return;
+    const key = site.name.trim().toLowerCase();
+    if (!masterMap[key] || (site.id && !String(site.id).startsWith('daily_'))) {
+      masterMap[key] = site;
+    }
+  });
+
+  sitesData = Object.keys(masterMap).map(function(k) { return masterMap[k]; });
 
   // Sort data strictly by Date (newest first), then by Nama Situs alphabetically
   sitesData.sort(function(a, b) {
