@@ -213,18 +213,49 @@ export class SitesService {
     const targetEndDate = siteData.targetEndDate && siteData.targetEndDate.trim() ? siteData.targetEndDate.trim() : null;
 
     const existingSites = await this.getAllSites();
-    const isDup = existingSites.some((s) => {
-      // If site was cut off before targetDate, it is no longer active for targetDate
-      if (s.targetEndDate && s.targetEndDate < targetDate) {
-        return false;
-      }
+    const existingDup = existingSites.find((s) => {
       const normExistingUrl = normalizeUrl(s.url || '');
       const normExistingName = (s.name || '').toLowerCase();
-      return normExistingUrl === normNewUrl || normExistingName === normNewName;
+      return normExistingName === normNewName || (normExistingUrl && normExistingUrl === normNewUrl);
     });
 
-    if (isDup) {
-      throw new BadRequestException(`Situs dengan nama "${name}" atau URL "${formattedUrl}" sudah terdaftar.`);
+    if (existingDup) {
+      // Reactivate cut-off site or return existing active site gracefully
+      const fileSites = this.readSitesFromFile();
+      const updatedFileSites = fileSites.map((s) => {
+        if (s.name.toLowerCase() === normNewName || s.id === existingDup.id) {
+          return {
+            ...s,
+            url: formattedUrl,
+            targetEndDate: null, // Clear cutoff to reactivate
+          };
+        }
+        return s;
+      });
+      this.writeSitesToFile(updatedFileSites);
+
+      if (this.prisma.isConnected) {
+        try {
+          await this.prisma.site.updateMany({
+            where: {
+              OR: [
+                { id: existingDup.id },
+                { name: { equals: name } },
+              ],
+            },
+            data: {
+              url: formattedUrl,
+            },
+          });
+        } catch (e) {}
+      }
+
+      return {
+        ...existingDup,
+        url: formattedUrl,
+        targetDate: targetDate,
+        targetEndDate: null,
+      };
     }
 
     const fallbackSite: SiteItem = {
