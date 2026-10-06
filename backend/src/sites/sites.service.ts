@@ -605,6 +605,18 @@ export class SitesService {
       return false;
     };
 
+    const getPreviousDateStr = (dateStr: string): string => {
+      const parts = dateStr.split('-');
+      if (parts.length !== 3) return dateStr;
+      const year = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1;
+      const day = parseInt(parts[2], 10);
+      const d = new Date(Date.UTC(year, month, day - 1));
+      return d.toISOString().split('T')[0];
+    };
+
+    const cutoffDate = deleteDate ? getPreviousDateStr(deleteDate) : null;
+
     if (!deleteDate) {
       // Full Unconditional Delete (No targetDate specified)
       if (this.prisma.isConnected) {
