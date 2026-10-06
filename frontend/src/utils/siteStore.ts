@@ -536,6 +536,7 @@ export async function deleteSiteApi(siteId: string, deleteDate?: string, siteNam
 
   if (deleteDate && cutoffDate) {
     // Cutoff Delete: update master site with targetEndDate = cutoffDate and prune entries >= deleteDate
+    let foundMaster = false;
     const updated = current
       .filter((s) => {
         const sNameLower = s.name.trim().toLowerCase();
@@ -551,6 +552,7 @@ export async function deleteSiteApi(siteId: string, deleteDate?: string, siteNam
       .map((s) => {
         const sNameLower = s.name.trim().toLowerCase();
         if (nameToUse && (sNameLower === nameToUse || s.id.includes(nameToUse))) {
+          foundMaster = true;
           return {
             ...s,
             targetEndDate: cutoffDate,
@@ -558,6 +560,16 @@ export async function deleteSiteApi(siteId: string, deleteDate?: string, siteNam
         }
         return s;
       });
+
+    if (!foundMaster && nameToUse) {
+      updated.unshift({
+        id: `site_cutoff_${Date.now()}`,
+        name: siteName || targetSite?.name || nameToUse,
+        url: targetSite?.url || '',
+        status: 'BELUM_DICEK',
+        targetEndDate: cutoffDate,
+      });
+    }
 
     saveStoredSites(updated, { skipEvent: true, skipSync: true });
 

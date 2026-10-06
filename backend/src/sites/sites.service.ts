@@ -116,12 +116,16 @@ export class SitesService {
         });
 
         const fileSites = this.readSitesFromFile();
-        const fileMap = new Map(fileSites.map((s) => [s.id, s]));
+        const fileMap = new Map<string, SiteItem>();
+        fileSites.forEach((s) => {
+          if (s.id) fileMap.set(s.id, s);
+          if (s.name) fileMap.set(s.name.trim().toLowerCase(), s);
+        });
         const todayStr = new Date().toISOString().split('T')[0];
 
         const formattedSites = sites.map((site) => {
           const latestTest = site.testingResults[0];
-          const cached = fileMap.get(site.id);
+          const cached = fileMap.get(site.id) || fileMap.get(site.name.trim().toLowerCase());
           const targetDate = cached?.targetDate || (site.createdAt ? site.createdAt.toISOString().split('T')[0] : todayStr);
           const targetEndDate = cached?.targetEndDate || null;
 
@@ -649,6 +653,8 @@ export class SitesService {
 
     // Cutoff Delete (deleteDate IS specified) -> PRESERVE historical records before deleteDate!
     const fileSites = this.readSitesFromFile();
+    let foundMaster = false;
+
     const updated = fileSites
       .filter((s) => {
         const sId = (s.id || '').trim();
@@ -666,6 +672,7 @@ export class SitesService {
       .map((s) => {
         const sNameLower = (s.name || '').trim().toLowerCase();
         if (targetNameLower && (sNameLower === targetNameLower || s.id.includes(targetNameLower))) {
+          foundMaster = true;
           return {
             ...s,
             targetEndDate: cutoffDate,
@@ -673,6 +680,16 @@ export class SitesService {
         }
         return s;
       });
+
+    if (!foundMaster && targetNameLower) {
+      updated.unshift({
+        id: `site_cutoff_${Date.now()}`,
+        name: nameSearch || cleanId,
+        url: '',
+        status: 'BELUM_DICEK',
+        targetEndDate: cutoffDate,
+      });
+    }
 
     this.writeSitesToFile(updated);
 
