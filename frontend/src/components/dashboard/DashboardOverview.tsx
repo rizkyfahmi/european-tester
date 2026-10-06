@@ -982,7 +982,7 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
                                 <td className="p-3 text-center whitespace-nowrap">
                                   <div className="flex items-center justify-center space-x-2">
                                     {/* Admin Delete Action */}
-                                    {userRole === 'admin' && (
+                                    {userRole === 'admin' ? (
                                       <button
                                         type="button"
                                         onClick={() => setConfirmDeleteSite(site)}
@@ -991,52 +991,52 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
                                       >
                                         <span>Hapus</span>
                                       </button>
-                                    )}
-
-                                    {/* Testing Input Actions (Unlocked ONLY for Today's Date) */}
-                                    {isTested ? (
-                                      <span
-                                        className="px-3 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 backdrop-blur-md select-none inline-block"
-                                        title="Situs ini telah diuji dan hasil telah dikunci"
-                                      >
-                                        ✓ Terkunci
-                                      </span>
-                                    ) : isFuture ? (
-                                      <span
-                                        className="px-3 py-1 rounded-full text-[11px] font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30 backdrop-blur-md cursor-not-allowed select-none inline-block"
-                                        title="Jadwal pengujian belum tiba (jadwal mendatang terkunci)"
-                                      >
-                                        Belum Waktunya
-                                      </span>
-                                    ) : isPast ? (
-                                      <span
-                                        className="px-3 py-1 rounded-full text-[11px] font-semibold bg-stone-800/60 text-stone-400 border border-stone-700/50 backdrop-blur-md cursor-not-allowed select-none inline-block"
-                                        title="Jadwal pengujian tanggal lalu telah terlewat & dikunci (hanya bisa dilihat)"
-                                      >
-                                        Terlewat (LOCKED)
-                                      </span>
                                     ) : (
-                                      <div className="flex items-center justify-center space-x-2">
-                                        <button
-                                          type="button"
-                                          disabled={submittingSiteId === site.id}
-                                          onClick={() => handleDirectSubmitTest(site, 'BERHASIL')}
-                                          className="px-3 py-1.5 text-xs font-bold rounded-full bg-[#00A86B] hover:bg-[#008f5b] text-white flex items-center space-x-1.5 shadow-md transition cursor-pointer disabled:opacity-50"
+                                      /* Testing Input Actions (Unlocked ONLY for Today's Date for Tester) */
+                                      isTested ? (
+                                        <span
+                                          className="px-3 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 backdrop-blur-md select-none inline-block"
+                                          title="Situs ini telah diuji dan hasil telah dikunci"
                                         >
-                                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-200 inline-block"></span>
-                                          <span>Berhasil</span>
-                                        </button>
+                                          ✓ Terkunci
+                                        </span>
+                                      ) : isFuture ? (
+                                        <span
+                                          className="px-3 py-1 rounded-full text-[11px] font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30 backdrop-blur-md cursor-not-allowed select-none inline-block"
+                                          title="Jadwal pengujian belum tiba (jadwal mendatang terkunci)"
+                                        >
+                                          Belum Waktunya
+                                        </span>
+                                      ) : isPast ? (
+                                        <span
+                                          className="px-3 py-1 rounded-full text-[11px] font-semibold bg-stone-800/60 text-stone-400 border border-stone-700/50 backdrop-blur-md cursor-not-allowed select-none inline-block"
+                                          title="Jadwal pengujian tanggal lalu telah terlewat & dikunci (hanya bisa dilihat)"
+                                        >
+                                          Terlewat (LOCKED)
+                                        </span>
+                                      ) : (
+                                        <div className="flex items-center justify-center space-x-2">
+                                          <button
+                                            type="button"
+                                            disabled={submittingSiteId === site.id}
+                                            onClick={() => handleDirectSubmitTest(site, 'BERHASIL')}
+                                            className="px-3 py-1.5 text-xs font-bold rounded-full bg-[#00A86B] hover:bg-[#008f5b] text-white flex items-center space-x-1.5 shadow-md transition cursor-pointer disabled:opacity-50"
+                                          >
+                                            <span className="w-2.5 h-2.5 rounded-full bg-emerald-200 inline-block"></span>
+                                            <span>Berhasil</span>
+                                          </button>
 
-                                        <button
-                                          type="button"
-                                          disabled={submittingSiteId === site.id}
-                                          onClick={() => handleDirectSubmitTest(site, 'GAGAL')}
-                                          className="px-3 py-1.5 text-xs font-bold rounded-full bg-[#E60039] hover:bg-[#c40030] text-white flex items-center space-x-1.5 shadow-md transition cursor-pointer disabled:opacity-50"
-                                        >
-                                          <span className="w-2.5 h-2.5 rounded-full border-2 border-white inline-block"></span>
-                                          <span>Gagal</span>
-                                        </button>
-                                      </div>
+                                          <button
+                                            type="button"
+                                            disabled={submittingSiteId === site.id}
+                                            onClick={() => handleDirectSubmitTest(site, 'GAGAL')}
+                                            className="px-3 py-1.5 text-xs font-bold rounded-full bg-[#E60039] hover:bg-[#c40030] text-white flex items-center space-x-1.5 shadow-md transition cursor-pointer disabled:opacity-50"
+                                          >
+                                            <span className="w-2.5 h-2.5 rounded-full border-2 border-white inline-block"></span>
+                                            <span>Gagal</span>
+                                          </button>
+                                        </div>
+                                      )
                                     )}
                                   </div>
                                 </td>
@@ -1178,9 +1178,12 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
               </svg>
             </div>
             <div>
-              <h4 className="text-sm font-bold text-[#FFF8EE]">Konfirmasi Hapus</h4>
+              <h4 className="text-sm font-bold text-[#FFF8EE]">Konfirmasi Hapus Situs</h4>
               <p className="text-xs text-[#FFE0B2]/80 mt-1.5 leading-relaxed">
-                Apakah Anda yakin ingin menghapus situs &quot;{confirmDeleteSite.name}&quot; dari daftar?
+                Apakah Anda yakin ingin menghapus situs <strong className="text-rose-400">&quot;{confirmDeleteSite.name}&quot;</strong> pada tanggal <strong>{formatDateIndo(dateFilterVal)}</strong>?
+              </p>
+              <p className="text-[11px] text-amber-300/80 mt-2 bg-amber-500/10 border border-amber-500/20 p-2 rounded-xl text-left leading-relaxed">
+                💡 <strong>Catatan Rekap:</strong> Data rekap sebelum tanggal {formatDateIndo(dateFilterVal)} akan <strong>tetap tersimpan</strong>, sedangkan tanggal {formatDateIndo(dateFilterVal)} & seterusnya akan terhapus.
               </p>
             </div>
             <div className="pt-2 flex items-center space-x-3">
