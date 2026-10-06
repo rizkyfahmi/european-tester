@@ -691,19 +691,6 @@ export class SitesService {
     const merged = clientSites.filter((s) => s && s.name);
 
     if (this.prisma.isConnected) {
-      const activeNames = merged.map((s) => s.name.trim().toLowerCase());
-      try {
-        await this.prisma.site.deleteMany({
-          where: {
-            NOT: {
-              name: { in: activeNames },
-            },
-          },
-        });
-      } catch (e) {
-        console.warn('Prisma delete missing sites error:', e);
-      }
-
       for (const site of merged) {
         if (!site || !site.name) continue;
         try {
