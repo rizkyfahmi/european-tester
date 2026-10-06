@@ -512,13 +512,18 @@ export async function deleteSiteApi(siteId: string, deleteDate?: string, siteNam
 
   const cutoffDate = dateToUse ? getPreviousDateStr(dateToUse) : null;
 
-  // Filter out any entries where targetDate >= deleteDate, and update targetEndDate = cutoffDate for remaining entries < deleteDate
+  // Filter out any entries where s.id === siteId or name matches nameToUse
   const filtered = current
     .filter((s) => {
+      const sId = s.id;
       const sNameLower = s.name.trim().toLowerCase();
       const sDate = s.targetDate || (s.lastTestedAt ? s.lastTestedAt.split('T')[0] : '');
-      if (nameToUse && sNameLower === nameToUse && dateToUse && sDate >= dateToUse) {
-        return false;
+
+      if (sId === siteId) return false;
+      if (nameToUse && sNameLower === nameToUse) {
+        if (!dateToUse || !sDate || sDate >= dateToUse) {
+          return false;
+        }
       }
       return true;
     })
@@ -542,6 +547,11 @@ export async function deleteSiteApi(siteId: string, deleteDate?: string, siteNam
       url += `?targetDate=${encodeURIComponent(dateToUse)}`;
     }
     await fetchWithTimeout(url, { method: 'DELETE' }, 4000);
+
+    if (nameToUse) {
+      const nameUrl = `${BACKEND_API_URL}/by-name/${encodeURIComponent(nameToUse)}`;
+      await fetchWithTimeout(nameUrl, { method: 'DELETE' }, 4000);
+    }
   } catch {
     // Silently fall back to local storage deletion
   }
