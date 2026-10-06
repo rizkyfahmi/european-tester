@@ -681,12 +681,16 @@ export class SitesService {
         return s;
       });
 
+    const masterSiteInFile = fileSites.find((s) => s.name.trim().toLowerCase() === targetNameLower || s.id === cleanId);
+    const originalStartDate = masterSiteInFile?.targetDate || (deletedSite?.createdAt ? deletedSite.createdAt.toISOString().split('T')[0] : deleteDate);
+
     if (!foundMaster && targetNameLower) {
       updated.unshift({
-        id: `site_cutoff_${Date.now()}`,
-        name: nameSearch || cleanId,
-        url: '',
-        status: 'BELUM_DICEK',
+        id: masterSiteInFile?.id || `site_cutoff_${Date.now()}`,
+        name: masterSiteInFile?.name || nameSearch || cleanId,
+        url: masterSiteInFile?.url || '',
+        status: masterSiteInFile?.status || 'BELUM_DICEK',
+        targetDate: originalStartDate,
         targetEndDate: cutoffDate,
       });
     }

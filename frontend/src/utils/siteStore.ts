@@ -563,10 +563,11 @@ export async function deleteSiteApi(siteId: string, deleteDate?: string, siteNam
 
     if (!foundMaster && nameToUse) {
       updated.unshift({
-        id: `site_cutoff_${Date.now()}`,
+        id: targetSite?.id || `site_cutoff_${Date.now()}`,
         name: siteName || targetSite?.name || nameToUse,
         url: targetSite?.url || '',
-        status: 'BELUM_DICEK',
+        status: targetSite?.status || 'BELUM_DICEK',
+        targetDate: targetSite?.targetDate || deleteDate,
         targetEndDate: cutoffDate,
       });
     }
