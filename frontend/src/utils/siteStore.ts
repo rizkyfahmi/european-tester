@@ -79,8 +79,8 @@ export function addTestingLog(log: TestingLog): void {
   window.dispatchEvent(new Event('logs_updated'));
 }
 
-// Helper function for fetch with automatic 4.0s timeout fallback
-async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs: number = 4000): Promise<Response | null> {
+// Helper function for fetch with automatic 12.0s timeout fallback
+async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs: number = 12000): Promise<Response | null> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -254,7 +254,7 @@ export function ensureDailyMasterSites(sites: SiteItem[], targetDateStr?: string
 // NestJS Backend REST API Integration
 export async function fetchSitesFromApi(): Promise<SiteItem[]> {
   try {
-    const res = await fetchWithTimeout(BACKEND_API_URL, { cache: 'no-store' }, 4000);
+    const res = await fetchWithTimeout(BACKEND_API_URL, { cache: 'no-store' }, 12000);
     if (res && res.ok) {
       const json = await res.json();
       const sitesArray: SiteItem[] = Array.isArray(json) ? json : json.data;
