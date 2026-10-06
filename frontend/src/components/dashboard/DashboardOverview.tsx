@@ -566,7 +566,7 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
               )}
 
               {/* Tombol Tambah Situs (Admin Only) */}
-              {userRole === 'admin' && (
+              {userRole === 'admin' && forcedRole !== 'tester' && (
                 <button
                   type="button"
                   onClick={() => {
@@ -1082,7 +1082,7 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
       </div>
 
       {/* POP-UP MODAL FITUR TAMBAH SITUS BARU (ADMIN) */}
-      {showAddSiteModal && userRole === 'admin' && (
+      {showAddSiteModal && userRole === 'admin' && forcedRole !== 'tester' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md transition-all overflow-y-auto">
           <div className="bg-[#1a0f0b] border border-[#FFE0B2]/30 rounded-3xl p-5 sm:p-6 max-w-md w-full shadow-2xl space-y-5 relative my-auto max-h-[90vh] overflow-y-auto">
             <button
