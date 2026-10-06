@@ -652,6 +652,24 @@ export class SitesService {
     }
 
     // Cutoff Delete (deleteDate IS specified) -> PRESERVE historical records before deleteDate!
+    if (this.prisma.isConnected) {
+      try {
+        const matchingSites = await this.prisma.site.findMany({
+          where: {
+            OR: [
+              { id: cleanId },
+              ...(nameSearch ? [{ name: { equals: nameSearch } }] : []),
+            ],
+          },
+        });
+        if (matchingSites.length > 0) {
+          deletedSite = matchingSites[0];
+        }
+      } catch (dbErr) {
+        console.warn('Prisma cutoff site query error:', dbErr);
+      }
+    }
+
     const fileSites = this.readSitesFromFile();
     let foundMaster = false;
 
@@ -681,7 +699,7 @@ export class SitesService {
         return s;
       });
 
-    const masterSiteInFile = fileSites.find((s) => s.name.trim().toLowerCase() === targetNameLower || s.id === cleanId);
+    const masterSiteInFile = fileSites.find((s) => (s.name || '').trim().toLowerCase() === targetNameLower || s.id === cleanId);
     const originalStartDate = masterSiteInFile?.targetDate || (deletedSite?.createdAt ? deletedSite.createdAt.toISOString().split('T')[0] : deleteDate);
 
     if (!foundMaster && targetNameLower) {

@@ -138,8 +138,9 @@ export function ensureDailyMasterSites(sites: SiteItem[], targetDateStr?: string
   const todayStr = new Date().toISOString().split('T')[0];
   const maxTargetStr = targetDateStr && targetDateStr > todayStr ? targetDateStr : todayStr;
 
-  // Map each site name to its minimum target date (start date)
+  // Map each site name to its minimum target date (start date) and cutoff end date
   const masterDateMap = new Map<string, string>();
+  const masterEndDateMap = new Map<string, string>();
   sites.forEach((site) => {
     const key = site.name.trim().toLowerCase();
     const siteDate = site.targetDate || (site.lastTestedAt ? site.lastTestedAt.split('T')[0] : site.createdAt ? site.createdAt.split('T')[0] : todayStr);
@@ -153,9 +154,14 @@ export function ensureDailyMasterSites(sites: SiteItem[], targetDateStr?: string
         }
       }
     }
+    if (site.targetEndDate) {
+      if (!masterEndDateMap.has(key) || site.targetEndDate < masterEndDateMap.get(key)!) {
+        masterEndDateMap.set(key, site.targetEndDate);
+      }
+    }
   });
 
-  // Extract unique master sites by lowercased name, preferring ACTIVE master sites (targetEndDate == null)
+  // Extract unique master sites by lowercased name, preferring ACTIVE master sites & records with targetEndDate
   const masterMap = new Map<string, SiteItem>();
   sites.forEach((site) => {
     const key = site.name.trim().toLowerCase();
@@ -165,7 +171,8 @@ export function ensureDailyMasterSites(sites: SiteItem[], targetDateStr?: string
     } else {
       if (existing.id.startsWith('daily_') && !site.id.startsWith('daily_')) {
         masterMap.set(key, site);
-      } else if (!site.targetEndDate && existing.targetEndDate) {
+      }
+      if (site.targetEndDate && !existing.targetEndDate) {
         masterMap.set(key, site);
       }
     }
@@ -184,7 +191,7 @@ export function ensureDailyMasterSites(sites: SiteItem[], targetDateStr?: string
 
   masterMap.forEach((masterSite, nameKey) => {
     const siteStartDate = masterDateMap.get(nameKey) || masterSite.targetDate || todayStr;
-    const siteEndDate = masterSite.targetEndDate || null;
+    const siteEndDate = masterEndDateMap.get(nameKey) || masterSite.targetEndDate || null;
     if (!siteStartDate) return;
 
     let curDate = siteStartDate;
@@ -232,8 +239,7 @@ export function ensureDailyMasterSites(sites: SiteItem[], targetDateStr?: string
     }
     const key = site.name.trim().toLowerCase();
     const minDate = masterDateMap.get(key);
-    const masterSite = masterMap.get(key);
-    const endDate = site.id.startsWith('daily_') ? (masterSite?.targetEndDate || site.targetEndDate) : site.targetEndDate;
+    const endDate = masterEndDateMap.get(key) || site.targetEndDate || (masterMap.get(key)?.targetEndDate || null);
 
     if (minDate && sDate && sDate < minDate) {
       hasChanged = true;

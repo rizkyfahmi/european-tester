@@ -616,10 +616,10 @@ function deleteSelectedRow() {
       } catch (e) {}
     }
 
-    if (item.name) {
+    if (!success && item.name) {
       try {
-        const deleteByNameUrl = `${CONFIG.BACKEND_URL}/sites/by-name/${encodeURIComponent(item.name)}`;
-        const res = UrlFetchApp.fetch(deleteByNameUrl, options);
+        const deleteUrl = `${CONFIG.BACKEND_URL}/sites/${encodeURIComponent(item.name)}?targetDate=${encodeURIComponent(item.targetDate || '')}`;
+        const res = UrlFetchApp.fetch(deleteUrl, options);
         if (res.getResponseCode() === 200 || res.getResponseCode() === 204) {
           success = true;
         }
