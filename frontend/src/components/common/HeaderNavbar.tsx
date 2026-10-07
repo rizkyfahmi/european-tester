@@ -44,7 +44,13 @@ export default function HeaderNavbar() {
 
   const getInitial = () => {
     if (userRole === 'admin') return 'ADM';
-    return accountName ? accountName.charAt(0).toUpperCase() : 'A';
+    if (!accountName) return 'TST';
+    const clean = accountName.trim();
+    const parts = clean.split(/\s+/);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return clean.length <= 3 ? clean.toUpperCase() : clean.slice(0, 3).toUpperCase();
   };
 
   const currentEmail = userRole === 'admin' ? 'admin@europeantester.com' : `${accountName.toLowerCase().replace(/\s+/g, '')}@gmail.com`;
@@ -76,32 +82,17 @@ export default function HeaderNavbar() {
 
         {/* Profile Dropdown Trigger */}
         <div className="relative">
-          {userRole === 'admin' ? (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setDropdownOpen((prev) => !prev);
-              }}
-              className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gradient-to-tr from-[#D3A376] to-[#FFE0B2] text-[#3E2522] flex items-center justify-center font-bold text-xs tracking-wider shadow-md hover:brightness-110 border border-[#FFE0B2]/40 transition-all cursor-pointer shrink-0"
-            >
-              ADM
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setDropdownOpen((prev) => !prev);
-              }}
-              className="flex items-center space-x-2 sm:space-x-3 bg-[#FFF8EE]/10 hover:bg-[#FFF8EE]/20 border border-[#FFE0B2]/30 pl-1.5 pr-3 py-1.5 rounded-full backdrop-blur-md transition-all cursor-pointer"
-            >
-              <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-gradient-to-tr from-[#D3A376] to-[#FFE0B2] text-[#3E2522] flex items-center justify-center font-bold text-xs">
-                {getInitial()}
-              </div>
-              <span className="text-xs font-semibold text-[#FFF8EE] hidden xs:inline">{accountName}</span>
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setDropdownOpen((prev) => !prev);
+            }}
+            className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gradient-to-tr from-[#D3A376] to-[#FFE0B2] text-[#3E2522] flex items-center justify-center font-bold text-xs tracking-wider shadow-md hover:brightness-110 border border-[#FFE0B2]/40 transition-all cursor-pointer shrink-0"
+            title={accountName}
+          >
+            {getInitial()}
+          </button>
 
           {/* Dropdown Menu */}
           {dropdownOpen && (
