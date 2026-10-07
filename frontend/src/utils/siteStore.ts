@@ -23,10 +23,24 @@ export interface TestingLog {
   date: string;
 }
 
-const rawApiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://frontend-lw4m-ten.vercel.app/api/v1';
-const cleanBaseUrl = rawApiUrl.replace(/\/+$/, '');
-const BACKEND_API_URL = cleanBaseUrl.endsWith('/sites') ? cleanBaseUrl : `${cleanBaseUrl}/sites`;
-const BACKEND_LOGS_URL = `${BACKEND_API_URL}/logs`;
+const getApiBaseUrl = (): string => {
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL.replace(/\/+$/, '');
+  }
+  if (typeof window !== 'undefined') {
+    return `${window.location.origin}/api/v1`;
+  }
+  return 'https://european-tester.vercel.app/api/v1';
+};
+
+const getSitesApiUrl = (): string => {
+  const base = getApiBaseUrl();
+  return base.endsWith('/sites') ? base : `${base}/sites`;
+};
+
+const getLogsApiUrl = (): string => {
+  return `${getSitesApiUrl()}/logs`;
+};
 
 let customSpreadsheetUrl = 'https://docs.google.com/spreadsheets/d/1Ye-bu9EnMsPTFoftfuco_BPiicFkCUDItodPZ7KgCSI/edit?hl=id&gid=0#gid=0';
 
@@ -53,7 +67,7 @@ export function saveStoredSites(sites: SiteItem[], options?: { skipEvent?: boole
 
   if (!options?.skipSync) {
     fetchWithTimeout(
-      `${BACKEND_API_URL}/sync`,
+      `${getSitesApiUrl()}/sync`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -292,7 +306,7 @@ export function ensureDailyMasterSites(sites: SiteItem[], targetDateStr?: string
 export async function fetchSitesFromApi(): Promise<SiteItem[]> {
   const localSites = getStoredSites();
   try {
-    const res = await fetchWithTimeout(BACKEND_API_URL, { cache: 'no-store' }, 12000);
+    const res = await fetchWithTimeout(getSitesApiUrl(), { cache: 'no-store' }, 8000);
     if (res && res.ok) {
       const json = await res.json();
       const sitesArray: SiteItem[] = Array.isArray(json) ? json : (json && json.data ? json.data : []);
@@ -305,7 +319,7 @@ export async function fetchSitesFromApi(): Promise<SiteItem[]> {
         } else if (localSites.length > 0) {
           // Auto-sync local storage sites back to server database if server returned empty data
           fetchWithTimeout(
-            `${BACKEND_API_URL}/sync`,
+            `${getSitesApiUrl()}/sync`,
             {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -327,7 +341,7 @@ export async function fetchSitesFromApi(): Promise<SiteItem[]> {
 export async function fetchLogsFromApi(): Promise<TestingLog[]> {
   const localLogs = getStoredLogs();
   try {
-    const res = await fetchWithTimeout(BACKEND_LOGS_URL, { cache: 'no-store' }, 4000);
+    const res = await fetchWithTimeout(getLogsApiUrl(), { cache: 'no-store' }, 4000);
     if (res && res.ok) {
       const json = await res.json();
       const logsArray = Array.isArray(json) ? json : (json && json.data ? json.data : []);
@@ -380,13 +394,13 @@ export async function createSiteApi(name: string, url: string, targetDate?: stri
 
   try {
     const res = await fetchWithTimeout(
-      BACKEND_API_URL,
+      getSitesApiUrl(),
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: cleanName, url: cleanUrl, targetDate: finalTargetDate, targetEndDate: finalTargetEndDate }),
       },
-      12000
+      8000
     );
     if (res && res.ok) {
       const json = await res.json();
@@ -478,7 +492,7 @@ export async function submitTestResultApi(
 
   try {
     const res = await fetchWithTimeout(
-      `${BACKEND_API_URL}/${siteId}/test`,
+      `${getSitesApiUrl()}/${encodeURIComponent(siteId)}/test`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -486,9 +500,10 @@ export async function submitTestResultApi(
           ...resultData,
           siteName: updatedSite.name,
           siteUrl: updatedSite.url,
+          targetDate: targetDateStr,
         }),
       },
-      4000
+      8000
     );
     if (res && res.ok) {
       const data = await res.json();
@@ -612,8 +627,8 @@ export async function deleteSiteApi(siteId: string, deleteDate?: string, siteNam
 
     try {
       const encodedId = encodeURIComponent(siteId);
-      const url = `${BACKEND_API_URL}/${encodedId}?targetDate=${encodeURIComponent(deleteDate)}`;
-      await fetchWithTimeout(url, { method: 'DELETE' }, 4000);
+      const url = `${getSitesApiUrl()}/${encodedId}?targetDate=${encodeURIComponent(deleteDate)}`;
+      await fetchWithTimeout(url, { method: 'DELETE' }, 8000);
     } catch {
       // Silently fall back to local storage deletion
     }
@@ -627,7 +642,7 @@ export async function deleteSiteApi(siteId: string, deleteDate?: string, siteNam
 
   try {
     const encodedId = encodeURIComponent(siteId);
-    await fetchWithTimeout(`${BACKEND_API_URL}/${encodedId}`, { method: 'DELETE' }, 4000);
+    await fetchWithTimeout(`${getSitesApiUrl()}/${encodedId}`, { method: 'DELETE' }, 8000);
   } catch {
     // Silently fall back
   }
@@ -684,11 +699,11 @@ export async function bulkDeleteSitesApi(siteIds: string[]): Promise<boolean> {
         const targetSite = selectedEntries.find((s) => s.id === id);
         const dateStr = targetSite?.targetDate || (targetSite?.lastTestedAt ? targetSite.lastTestedAt.split('T')[0] : '');
         const encodedId = encodeURIComponent(id);
-        let url = `${BACKEND_API_URL}/${encodedId}`;
+        let url = `${getSitesApiUrl()}/${encodedId}`;
         if (dateStr) {
           url += `?targetDate=${encodeURIComponent(dateStr)}`;
         }
-        await fetchWithTimeout(url, { method: 'DELETE' }, 4000);
+        await fetchWithTimeout(url, { method: 'DELETE' }, 8000);
       })
     );
   } catch {
