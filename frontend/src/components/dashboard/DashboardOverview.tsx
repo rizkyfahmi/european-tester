@@ -482,8 +482,8 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
       {userRole === 'admin' && (
         <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-neutral-900/40 via-[#FFF8EE]/10 to-[#FFF8EE]/10 backdrop-blur-xl border border-white/10 shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div>
-            <h3 className="text-xs font-bold text-[#FFF8EE]">Sinkronisasi Google Sheets Aktif</h3>
-            <p className="text-[11px] text-[#FFE0B2]/70 mt-0.5">Semua data rekap pengujian terkoneksi secara otomatis ke Google Sheets pusat.</p>
+            <h3 className="text-xs font-bold text-[#FFF8EE]">Google Sheets Synchronization Active</h3>
+            <p className="text-[11px] text-[#FFE0B2]/70 mt-0.5">All test summary data connects automatically to central Google Sheets.</p>
           </div>
           <a
             href={spreadsheetUrl}
@@ -491,7 +491,7 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
             rel="noopener noreferrer"
             className="w-full sm:w-auto text-center px-4 py-2 text-xs font-semibold rounded-xl bg-amber-600 hover:bg-amber-500 text-white shadow-lg transition shrink-0 cursor-pointer"
           >
-            <span>Buka Spreadsheet</span>
+            <span>Open Spreadsheet</span>
           </a>
         </div>
       )}
