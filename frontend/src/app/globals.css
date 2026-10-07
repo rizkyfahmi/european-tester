@@ -89,6 +89,22 @@ input:-webkit-autofill:active {
   border-color: rgba(255, 224, 178, 0.6) !important;
 }
 
+/* Hide Native Browser Password Reveal & Clear Icons (Edge, IE, Chrome, WebKit) */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+input::-webkit-credentials-auto-fill-button,
+input::-webkit-contacts-auto-fill-button {
+  visibility: hidden !important;
+  pointer-events: none !important;
+  position: absolute !important;
+  right: 0 !important;
+}
+
 /* Glassmorphism background utilities */
 .glass-card {
   background: rgba(15, 23, 42, 0.75);
