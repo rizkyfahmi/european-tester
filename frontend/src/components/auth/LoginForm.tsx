@@ -266,14 +266,14 @@ export default function AuthForm({ initialMode = 'login', onLoginSuccess }: Auth
 
   return (
     <div className="w-full min-h-screen flex items-center justify-center p-4 bg-[#0d0705] relative overflow-y-auto no-scrollbar font-sans selection:bg-[#FFE0B2] selection:text-[#3E2522]">
-      {/* Background Image Layer */}
-      <div
-        className="fixed inset-0 w-full h-full bg-cover bg-center bg-no-repeat opacity-100 pointer-events-none transition-opacity duration-500"
-        style={{ backgroundImage: "url('/bg login3.jpeg')" }}
-      />
-
-      {/* Dark Overlay Gradient */}
-      <div className="fixed inset-0 w-full h-full bg-gradient-to-b from-black/60 via-black/25 to-black/70 pointer-events-none" />
+      {/* Background Image Layer & Dark Overlay (GPU Accelerated, No-Stutter) */}
+      <div className="fixed inset-0 w-full h-full pointer-events-none z-0 overflow-hidden transform-gpu [transform:translateZ(0)] will-change-transform">
+        <div
+          className="absolute inset-0 w-full h-full bg-cover bg-center bg-no-repeat opacity-100 transition-opacity duration-500 blur-sm scale-105"
+          style={{ backgroundImage: "url('/bg login3.jpeg')" }}
+        />
+        <div className="absolute inset-0 w-full h-full bg-gradient-to-b from-black/60 via-black/25 to-black/70" />
+      </div>
 
       {/* Main Glassmorphic Card Container */}
       <main className="relative z-10 w-full max-w-sm bg-gradient-to-br from-[#FFF2DF]/25 via-[#FFE0B2]/15 to-[#D3A376]/10 backdrop-blur-2xl px-7 py-8 rounded-3xl shadow-[0_25px_50px_rgba(0,0,0,0.65),0_0_15px_rgba(255,224,178,0.15)] border border-[#FFE0B2]/40 animate-fade-in-up transition-all duration-500 my-auto">

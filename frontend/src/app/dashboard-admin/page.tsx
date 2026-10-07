@@ -7,14 +7,14 @@ import DashboardOverview from '@/components/dashboard/DashboardOverview';
 export default function DashboardAdminPage() {
   return (
     <div className="w-full min-h-screen bg-[#0d0705] text-[#FFF8EE] relative overflow-x-hidden font-sans antialiased">
-      {/* Background Gambar Fullscreen */}
-      <div
-        className="fixed inset-0 w-full h-full bg-cover bg-center bg-no-repeat opacity-100 pointer-events-none transition-opacity duration-500 z-0"
-        style={{ backgroundImage: "url('/bg login3.jpeg')" }}
-      />
-
-      {/* Dark Overlay Glassmorphism */}
-      <div className="fixed inset-0 w-full h-full bg-black/60 backdrop-blur-md pointer-events-none z-0" />
+      {/* Background Gambar Fullscreen (GPU Accelerated, Smooth Scroll) */}
+      <div className="fixed inset-0 w-full h-full pointer-events-none z-0 overflow-hidden transform-gpu [transform:translateZ(0)] will-change-transform">
+        <div
+          className="absolute inset-0 w-full h-full bg-cover bg-center bg-no-repeat opacity-100 transition-opacity duration-500 blur-md scale-105"
+          style={{ backgroundImage: "url('/bg login3.jpeg')" }}
+        />
+        <div className="absolute inset-0 w-full h-full bg-black/60" />
+      </div>
 
       {/* Main Container */}
       <div className="relative z-10 min-h-screen flex flex-col">
