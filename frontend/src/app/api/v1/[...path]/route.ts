@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const BACKEND_URL = process.env.NESTJS_BACKEND_URL || 'https://european-tester.vercel.app/api/v1';
+const BACKEND_URL = process.env.NESTJS_BACKEND_URL || 'https://european-tester-nine.vercel.app/api/v1';
 
 let globalProxySitesCache: any[] = [];
 let hasReceivedClientSync = false;

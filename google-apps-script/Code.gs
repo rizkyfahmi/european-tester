@@ -19,7 +19,7 @@
  */
 
 const CONFIG = {
-  BACKEND_URL: 'https://european-tester.vercel.app/api/v1',
+  BACKEND_URL: 'https://european-tester-nine.vercel.app/api/v1',
   API_KEY: 'qa-secret-api-key-2026',
   PRIMARY_SHEET_NAME: 'Data Testing QA',
 };
