@@ -5,7 +5,7 @@ const getApiBaseUrl = (): string => {
   if (typeof window !== 'undefined') {
     return `${window.location.origin}/api/v1`;
   }
-  return 'https://european-tester.vercel.app/api/v1';
+  return 'https://european-tester-nine.vercel.app/api/v1';
 };
 
 export async function apiRequest<T>(
