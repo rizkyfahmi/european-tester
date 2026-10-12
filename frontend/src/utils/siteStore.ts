@@ -650,7 +650,7 @@ export async function deleteSiteApi(siteId: string, deleteDate?: string, siteNam
   return true;
 }
 
-export async function bulkDeleteSitesApi(siteIds: string[]): Promise<boolean> {
+export async function bulkDeleteSitesApi(siteIds: string[], targetDate?: string): Promise<boolean> {
   if (!siteIds || siteIds.length === 0) return true;
 
   const current = getStoredSites();
@@ -661,7 +661,7 @@ export async function bulkDeleteSitesApi(siteIds: string[]): Promise<boolean> {
 
   selectedEntries.forEach((s) => {
     const sName = s.name.trim().toLowerCase();
-    const sDate = s.targetDate || (s.lastTestedAt ? s.lastTestedAt.split('T')[0] : '');
+    const sDate = targetDate || s.targetDate || (s.lastTestedAt ? s.lastTestedAt.split('T')[0] : '');
     if (sName && sDate) {
       if (!namesCutoffMap.has(sName) || sDate < namesCutoffMap.get(sName)!.deleteDate) {
         namesCutoffMap.set(sName, { deleteDate: sDate, cutoffDate: getPreviousDateStr(sDate) });
@@ -691,23 +691,33 @@ export async function bulkDeleteSitesApi(siteIds: string[]): Promise<boolean> {
       return s;
     });
 
-  saveStoredSites(filtered);
+  saveStoredSites(filtered, { skipEvent: true, skipSync: true });
 
   try {
-    await Promise.all(
-      siteIds.map(async (id) => {
-        const targetSite = selectedEntries.find((s) => s.id === id);
-        const dateStr = targetSite?.targetDate || (targetSite?.lastTestedAt ? targetSite.lastTestedAt.split('T')[0] : '');
-        const encodedId = encodeURIComponent(id);
-        let url = `${getSitesApiUrl()}/${encodedId}`;
-        if (dateStr) {
-          url += `?targetDate=${encodeURIComponent(dateStr)}`;
-        }
-        await fetchWithTimeout(url, { method: 'DELETE' }, 25000);
-      })
+    const res = await fetchWithTimeout(
+      `${getSitesApiUrl()}/bulk-delete`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ siteIds, targetDate }),
+      },
+      25000
     );
-  } catch {
-    // Silently fall back to local storage deletion
+    if (!res || !res.ok) {
+      // Fallback to individual cutoff deletions
+      await Promise.all(
+        siteIds.map(async (id) => {
+          const encodedId = encodeURIComponent(id);
+          let url = `${getSitesApiUrl()}/${encodedId}`;
+          if (targetDate) {
+            url += `?targetDate=${encodeURIComponent(targetDate)}`;
+          }
+          await fetchWithTimeout(url, { method: 'DELETE' }, 25000);
+        })
+      );
+    }
+  } catch (err) {
+    console.warn('Bulk delete server error, falling back locally:', err);
   }
 
   return true;

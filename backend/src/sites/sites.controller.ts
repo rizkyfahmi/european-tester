@@ -42,6 +42,15 @@ export class SitesController {
     };
   }
 
+  @Post('bulk-delete')
+  async bulkDeleteSites(@Body() body: { siteIds: string[]; targetDate?: string }) {
+    const data = await this.sitesService.bulkDeleteSites(body.siteIds || [], body.targetDate);
+    return {
+      status: 'SUCCESS',
+      data,
+    };
+  }
+
   @Delete(':id')
   async deleteSite(@Param('id') id: string, @Query('targetDate') targetDate?: string) {
     const data = await this.sitesService.deleteSite(id, targetDate);

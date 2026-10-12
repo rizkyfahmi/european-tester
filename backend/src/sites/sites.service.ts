@@ -122,14 +122,18 @@ export class SitesService {
         sites.forEach((site) => {
           const createdDateStr = site.createdAt ? site.createdAt.toISOString().split('T')[0] : todayStr;
           const siteStatusStr = site.status === 'SELESAI' ? 'BERHASIL' : site.status === 'GAGAL_ADA_REPORT' ? 'GAGAL' : site.status;
+          const siteEndDateStr = site.targetEndDate ? site.targetEndDate.toISOString().split('T')[0] : null;
 
           // Track dates that have tests
           const testedDateSet = new Set<string>();
 
-          // 1. Add records for each unique test date from testingResults
+          // 1. Add records for each unique test date from testingResults (only if on or before targetEndDate)
           if (Array.isArray(site.testingResults)) {
             site.testingResults.forEach((test) => {
               const testDateStr = test.testedAt ? test.testedAt.toISOString().split('T')[0] : todayStr;
+              if (siteEndDateStr && testDateStr > siteEndDateStr) {
+                return; // Historical retention: do not show records after cutoff date
+              }
               if (!testedDateSet.has(testDateStr)) {
                 testedDateSet.add(testDateStr);
                 formattedSites.push({
@@ -140,7 +144,7 @@ export class SitesService {
                   lastTestedBy: test.testerName,
                   lastTestedAt: test.testedAt.toISOString(),
                   targetDate: testDateStr,
-                  targetEndDate: null,
+                  targetEndDate: siteEndDateStr,
                   notes: test.notes || null,
                   version: test.version || site.version,
                   createdAt: site.createdAt.toISOString(),
@@ -150,8 +154,8 @@ export class SitesService {
             });
           }
 
-          // 2. If the site itself has a completed status for today but not in testingResults
-          if (siteStatusStr !== 'BELUM_DICEK' && !testedDateSet.has(todayStr)) {
+          // 2. If the site itself has a completed status for today but not in testingResults (and today <= targetEndDate)
+          if (siteStatusStr !== 'BELUM_DICEK' && !testedDateSet.has(todayStr) && (!siteEndDateStr || todayStr <= siteEndDateStr)) {
             testedDateSet.add(todayStr);
             formattedSites.push({
               id: site.id,
@@ -161,7 +165,7 @@ export class SitesService {
               lastTestedBy: site.currentTester || null,
               lastTestedAt: site.completedAt ? site.completedAt.toISOString() : site.updatedAt.toISOString(),
               targetDate: todayStr,
-              targetEndDate: null,
+              targetEndDate: siteEndDateStr,
               notes: null,
               version: site.version,
               createdAt: site.createdAt.toISOString(),
@@ -169,8 +173,8 @@ export class SitesService {
             });
           }
 
-          // 3. Always include the master baseline prototype with creation date
-          if (!testedDateSet.has(createdDateStr)) {
+          // 3. Always include the master baseline prototype with creation date (if createdDateStr <= targetEndDate)
+          if (!testedDateSet.has(createdDateStr) && (!siteEndDateStr || createdDateStr <= siteEndDateStr)) {
             formattedSites.push({
               id: site.id,
               name: site.name,
@@ -179,7 +183,7 @@ export class SitesService {
               lastTestedBy: null,
               lastTestedAt: null,
               targetDate: createdDateStr,
-              targetEndDate: null,
+              targetEndDate: siteEndDateStr,
               notes: null,
               version: site.version,
               createdAt: site.createdAt.toISOString(),
@@ -399,6 +403,21 @@ export class SitesService {
       const matchDate = siteId.match(/(\d{4}-\d{2}-\d{2})/);
       if (matchDate) {
         targetDate = matchDate[1];
+      }
+    }
+
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    // Time-Locked Validation: Only current date (today) is allowed for tester input
+    if (targetDate !== todayStr) {
+      if (targetDate < todayStr) {
+        throw new BadRequestException(
+          `Validasi Tanggal Gagal: Tanggal lampau (${targetDate}) terkunci otomatis. Tester tidak diizinkan membuat input baru atau mengubah data pada tanggal yang sudah terlewat.`
+        );
+      } else {
+        throw new BadRequestException(
+          `Validasi Tanggal Gagal: Tanggal masa depan (${targetDate}) terkunci. Input data hanya diizinkan untuk tanggal hari ini (${todayStr}).`
+        );
       }
     }
 
@@ -765,31 +784,70 @@ export class SitesService {
 
         if (matchingSites.length > 0) {
           deletedSite = matchingSites[0];
-          await this.prisma.site.deleteMany({
-            where: {
-              id: { in: matchingSites.map((s) => s.id) },
-            },
-          });
+          const siteCreatedAtStr = deletedSite.createdAt ? deletedSite.createdAt.toISOString().split('T')[0] : '';
 
-          await this.prisma.testingResult.deleteMany({
-            where: {
-              siteId: { in: matchingSites.map((s) => s.id) },
-            },
-          });
-
-          try {
-            await this.prisma.auditLog.create({
+          // Cumulative Range Business Logic:
+          // If deleting from a middle date (e.g. Date 4) where deleteDate > siteCreatedAtStr:
+          // RETAIN historical data from Date 1 up to cutoffDate (Date 3), and cleanup data from deleteDate (Date 4) onwards!
+          if (deleteDate && siteCreatedAtStr && deleteDate > siteCreatedAtStr && cutoffDate) {
+            await this.prisma.site.updateMany({
+              where: {
+                id: { in: matchingSites.map((s) => s.id) },
+              },
               data: {
-                recordId: deletedSite.id,
-                entityType: 'SITE',
-                changedFrom: JSON.stringify(deletedSite),
-                changedTo: 'DELETED',
-                changedBy: 'System / User',
-                source: AuditSource.WEBSITE,
+                targetEndDate: new Date(`${cutoffDate}T23:59:59.999Z`),
               },
             });
-          } catch (auditErr) {
-            console.warn('Could not write audit log for delete:', auditErr);
+
+            // Clean data from deleteDate onwards, leaving historical tests before deleteDate safe
+            const deleteStart = new Date(`${deleteDate}T00:00:00.000Z`);
+            await this.prisma.testingResult.deleteMany({
+              where: {
+                siteId: { in: matchingSites.map((s) => s.id) },
+                testedAt: { gte: deleteStart },
+              },
+            });
+
+            try {
+              await this.prisma.auditLog.create({
+                data: {
+                  recordId: deletedSite.id,
+                  entityType: 'SITE',
+                  changedFrom: JSON.stringify(deletedSite),
+                  changedTo: `CUTOFF_AT_${cutoffDate}`,
+                  changedBy: 'System / User',
+                  source: AuditSource.WEBSITE,
+                },
+              });
+            } catch (auditErr) {}
+          } else {
+            // Full delete if deleting on/before creation date, or no deleteDate specified
+            await this.prisma.site.deleteMany({
+              where: {
+                id: { in: matchingSites.map((s) => s.id) },
+              },
+            });
+
+            await this.prisma.testingResult.deleteMany({
+              where: {
+                siteId: { in: matchingSites.map((s) => s.id) },
+              },
+            });
+
+            try {
+              await this.prisma.auditLog.create({
+                data: {
+                  recordId: deletedSite.id,
+                  entityType: 'SITE',
+                  changedFrom: JSON.stringify(deletedSite),
+                  changedTo: 'DELETED',
+                  changedBy: 'System / User',
+                  source: AuditSource.WEBSITE,
+                },
+              });
+            } catch (auditErr) {
+              console.warn('Could not write audit log for delete:', auditErr);
+            }
           }
         }
       } catch (dbErr) {
@@ -797,7 +855,26 @@ export class SitesService {
       }
     }
 
-    const updated = fileSites.filter((s) => !isTargetSiteEntry(s));
+    let updated: SiteItem[];
+    if (deleteDate && cutoffDate) {
+      updated = fileSites
+        .filter((s) => {
+          const sDate = s.targetDate || (s.lastTestedAt ? s.lastTestedAt.split('T')[0] : '');
+          if (isTargetSiteEntry(s) && sDate && sDate >= deleteDate) {
+            return false;
+          }
+          return true;
+        })
+        .map((s) => {
+          if (isTargetSiteEntry(s)) {
+            return { ...s, targetEndDate: cutoffDate };
+          }
+          return s;
+        });
+    } else {
+      updated = fileSites.filter((s) => !isTargetSiteEntry(s));
+    }
+
     this.writeSitesToFile(updated);
 
     return {
@@ -834,6 +911,29 @@ export class SitesService {
 
     this.writeSitesToFile(updated);
     return { success: true, name: cleanName };
+  }
+
+  // 9. BULK DELETE SITES WITH TIME-SAFE CUTOFF LOGIC
+  async bulkDeleteSites(siteIds: string[], targetDate?: string) {
+    if (!Array.isArray(siteIds) || siteIds.length === 0) {
+      return { success: true, count: 0 };
+    }
+
+    let deletedCount = 0;
+    for (const id of siteIds) {
+      try {
+        await this.deleteSite(id, targetDate);
+        deletedCount++;
+      } catch (e) {
+        console.warn(`Error during bulk delete for site ID ${id}:`, e);
+      }
+    }
+
+    return {
+      success: true,
+      count: deletedCount,
+      targetDate: targetDate || null,
+    };
   }
 
   async syncSites(clientSites: SiteItem[]): Promise<SiteItem[]> {

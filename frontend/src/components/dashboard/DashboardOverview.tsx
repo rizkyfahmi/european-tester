@@ -262,6 +262,17 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
   const handleDirectSubmitTest = (site: SiteItem, resultStatus: 'BERHASIL' | 'GAGAL') => {
     if (submittingSiteId) return;
 
+    const siteDate = getSiteDate(site);
+    const todayStr = getTodayDateStr();
+
+    if (siteDate !== todayStr) {
+      setCustomAlert({
+        title: 'Input Terkunci (Time-Locked)',
+        message: 'Penginputan hasil tes hanya diizinkan untuk tanggal hari ini. Tanggal lampau dan masa depan terkunci otomatis dari modifikasi.',
+      });
+      return;
+    }
+
     const initialTester = rowTesterNames[site.id] !== undefined
       ? rowTesterNames[site.id].trim()
       : '';
@@ -278,6 +289,17 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
   const executeSubmitTest = async () => {
     if (!confirmTestSubmission || submittingSiteId) return;
     const { site, resultStatus, testerName } = confirmTestSubmission;
+
+    const siteDate = getSiteDate(site);
+    const todayStr = getTodayDateStr();
+
+    if (siteDate !== todayStr) {
+      setCustomAlert({
+        title: 'Input Terkunci (Time-Locked)',
+        message: 'Penginputan hasil tes hanya diizinkan untuk tanggal hari ini. Tanggal lampau dan masa depan terkunci otomatis dari modifikasi.',
+      });
+      return;
+    }
 
     if (!testerName.trim()) {
       setCustomAlert({
@@ -305,11 +327,11 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
         title: 'Test Result Saved Successfully',
         message: `Test result for site "${site.name}" successfully saved as ${resultStatus === 'BERHASIL' ? 'Successful' : 'Failed'} by ${finalTester}.`,
       });
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error submitting test result:', err);
       setCustomAlert({
-        title: 'Failed to Save',
-        message: 'An error occurred while saving the test result.',
+        title: 'Gagal Menyimpan',
+        message: err?.message || 'Terjadi kesalahan saat menyimpan hasil pengujian.',
       });
     } finally {
       setSubmittingSiteId(null);
@@ -423,14 +445,22 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
     const idsToDelete = [...selectedSiteIds];
     const selectedSitesList = sites.filter((s) => idsToDelete.includes(s.id));
     const selectedNames = new Set(selectedSitesList.map((s) => s.name.trim().toLowerCase()));
+    const targetDateToUse = dateFilterVal || getTodayDateStr();
 
-    // Optimistically update UI state
+    // Optimistically update UI state respecting cutoff date
     setSites((prev) =>
-      prev.filter((s) => !idsToDelete.includes(s.id) && !selectedNames.has(s.name.trim().toLowerCase()))
+      prev.filter((s) => {
+        const sDate = getSiteDate(s);
+        const matches = idsToDelete.includes(s.id) || selectedNames.has(s.name.trim().toLowerCase());
+        if (matches && sDate >= targetDateToUse) {
+          return false;
+        }
+        return true;
+      })
     );
 
     try {
-      await bulkDeleteSitesApi(idsToDelete);
+      await bulkDeleteSitesApi(idsToDelete, targetDateToUse);
       setSelectedSiteIds([]);
       setIsSelectionMode(false);
       setShowBulkDeleteConfirm(false);
@@ -438,7 +468,7 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
 
       setCustomAlert({
         title: 'Deleted Successfully',
-        message: `${idsToDelete.length} selected sites deleted from test list.`,
+        message: `${idsToDelete.length} selected sites deleted starting from ${formatDateEn(targetDateToUse)}. Data before this date remains preserved.`,
       });
     } catch (err) {
       console.error('Error bulk deleting sites:', err);

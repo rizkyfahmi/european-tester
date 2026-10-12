@@ -40,6 +40,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
           currentTester VARCHAR(191) NULL,
           startedAt DATETIME(3) NULL,
           completedAt DATETIME(3) NULL,
+          targetEndDate DATETIME(3) NULL,
           version INT NOT NULL DEFAULT 1,
           createdAt DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
           updatedAt DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3)

@@ -176,6 +176,24 @@ export class GoogleSheetsService {
     }
 
     const targetDate = dto.targetDate || (id.match(/(\d{4}-\d{2}-\d{2})/) ? id.match(/(\d{4}-\d{2}-\d{2})/)![1] : null);
+    const todayStr = new Date().toISOString().split('T')[0];
+    const targetDateStr = targetDate || todayStr;
+
+    // Time-Locked Validation: Only current date (today) is allowed for tester status update
+    if (dto.status === 'BERHASIL' || dto.status === 'GAGAL') {
+      if (targetDateStr !== todayStr) {
+        if (targetDateStr < todayStr) {
+          throw new BadRequestException(
+            `Validasi Tanggal Gagal: Tanggal lampau (${targetDateStr}) terkunci otomatis. Tester tidak diizinkan mengubah status pada tanggal yang sudah terlewat.`
+          );
+        } else {
+          throw new BadRequestException(
+            `Validasi Tanggal Gagal: Tanggal masa depan (${targetDateStr}) terkunci. Input data hanya diizinkan untuk tanggal hari ini (${todayStr}).`
+          );
+        }
+      }
+    }
+
     const sites = this.readSitesFromFile();
     const siteNameLower = (dto.name || '').trim().toLowerCase();
 
