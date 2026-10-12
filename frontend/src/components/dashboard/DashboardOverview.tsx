@@ -128,6 +128,13 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
     };
   }, [forcedRole]);
 
+  // Immediately filter data for Today on initial mount (browser refresh or login)
+  useEffect(() => {
+    const todayStr = getTodayDateStr();
+    setDateFilterVal(todayStr);
+    dateFilterRef.current = todayStr;
+  }, []);
+
   useEffect(() => {
     dateFilterRef.current = dateFilterVal;
     const processed = ensureDailyMasterSites(sites, dateFilterVal || undefined);
@@ -233,7 +240,7 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
 
   const resetAllFilters = () => {
     setStatusFilter('Semua');
-    setDateFilterVal('');
+    setDateFilterVal(getTodayDateStr());
     setSearchQuery('');
   };
 
@@ -351,8 +358,7 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
       // Exact 0.5 sec delay for smooth UI feedback
       await new Promise((r) => setTimeout(r, 500));
 
-      // Show all cumulative rekap dates from start date up to today
-      setDateFilterVal('');
+      setDateFilterVal(getTodayDateStr());
       await loadData();
       setNewSiteName('');
       setNewSiteUrl('');
