@@ -192,25 +192,8 @@ export class SitesService {
           }
         });
 
-        const fileSites = this.readSitesFromFile();
-        const mergedMap = new Map<string, SiteItem>();
-        formattedSites.forEach((s) => {
-          const key = `${s.name.trim().toLowerCase()}_${s.targetDate}`;
-          mergedMap.set(key, s);
-        });
-
-        fileSites.forEach((s) => {
-          if (s && s.name && s.targetDate) {
-            const key = `${s.name.trim().toLowerCase()}_${s.targetDate}`;
-            if (!mergedMap.has(key)) {
-              mergedMap.set(key, s);
-            }
-          }
-        });
-
-        const combinedList = Array.from(mergedMap.values());
-        this.writeSitesToFile(combinedList);
-        return combinedList;
+        this.writeSitesToFile(formattedSites);
+        return formattedSites;
       }
 
       return this.readSitesFromFile();
@@ -771,12 +754,15 @@ export class SitesService {
 
     const cutoffDate = deleteDate ? getPreviousDateStr(deleteDate) : null;
 
+    let isRetained = false;
+
     if (this.prisma.isConnected) {
       try {
         const matchingSites = await this.prisma.site.findMany({
           where: {
             OR: [
               { id: cleanId },
+              ...(nameSearch ? [{ name: { equals: nameSearch } }] : []),
               { name: { equals: resolvedName } },
             ],
           },
@@ -786,10 +772,25 @@ export class SitesService {
           deletedSite = matchingSites[0];
           const siteCreatedAtStr = deletedSite.createdAt ? deletedSite.createdAt.toISOString().split('T')[0] : '';
 
-          // Cumulative Range Business Logic:
-          // If deleting from a middle date (e.g. Date 4) where deleteDate > siteCreatedAtStr:
-          // RETAIN historical data from Date 1 up to cutoffDate (Date 3), and cleanup data from deleteDate (Date 4) onwards!
-          if (deleteDate && siteCreatedAtStr && deleteDate > siteCreatedAtStr && cutoffDate) {
+          // Check if there are any test results strictly before deleteDate
+          let hasPriorHistory = false;
+          if (deleteDate) {
+            const deleteStart = new Date(`${deleteDate}T00:00:00.000Z`);
+            const priorCount = await this.prisma.testingResult.count({
+              where: {
+                siteId: { in: matchingSites.map((s) => s.id) },
+                testedAt: { lt: deleteStart },
+              },
+            });
+            if (priorCount > 0 || (siteCreatedAtStr && deleteDate > siteCreatedAtStr)) {
+              hasPriorHistory = true;
+            }
+          }
+
+          // Cumulative Range Retention Logic:
+          // If the site has prior history before deleteDate, retain up to cutoffDate
+          if (hasPriorHistory && deleteDate && cutoffDate) {
+            isRetained = true;
             await this.prisma.site.updateMany({
               where: {
                 id: { in: matchingSites.map((s) => s.id) },
@@ -799,7 +800,7 @@ export class SitesService {
               },
             });
 
-            // Clean data from deleteDate onwards, leaving historical tests before deleteDate safe
+            // Clean data from deleteDate onwards
             const deleteStart = new Date(`${deleteDate}T00:00:00.000Z`);
             await this.prisma.testingResult.deleteMany({
               where: {
@@ -821,16 +822,16 @@ export class SitesService {
               });
             } catch (auditErr) {}
           } else {
-            // Full delete if deleting on/before creation date, or no deleteDate specified
-            await this.prisma.site.deleteMany({
-              where: {
-                id: { in: matchingSites.map((s) => s.id) },
-              },
-            });
-
+            // Full delete if deleting on/before creation date, or no prior history
             await this.prisma.testingResult.deleteMany({
               where: {
                 siteId: { in: matchingSites.map((s) => s.id) },
+              },
+            });
+
+            await this.prisma.site.deleteMany({
+              where: {
+                id: { in: matchingSites.map((s) => s.id) },
               },
             });
 
@@ -856,7 +857,7 @@ export class SitesService {
     }
 
     let updated: SiteItem[];
-    if (deleteDate && cutoffDate) {
+    if (isRetained && deleteDate && cutoffDate) {
       updated = fileSites
         .filter((s) => {
           const sDate = s.targetDate || (s.lastTestedAt ? s.lastTestedAt.split('T')[0] : '');
@@ -883,6 +884,7 @@ export class SitesService {
       deleteDate,
       cutoffDate,
       deletedSite,
+      isRetained,
     };
   }
 
@@ -890,11 +892,18 @@ export class SitesService {
     const cleanName = decodeURIComponent(name).trim();
     try {
       if (this.prisma.isConnected) {
-        await this.prisma.site.deleteMany({
-          where: {
-            name: { equals: cleanName },
-          },
+        const matching = await this.prisma.site.findMany({
+          where: { name: { equals: cleanName } },
         });
+        if (matching.length > 0) {
+          const ids = matching.map((s) => s.id);
+          await this.prisma.testingResult.deleteMany({
+            where: { siteId: { in: ids } },
+          });
+          await this.prisma.site.deleteMany({
+            where: { id: { in: ids } },
+          });
+        }
       }
     } catch (dbErr) {
       console.warn('Prisma deleteMany by name error:', dbErr);

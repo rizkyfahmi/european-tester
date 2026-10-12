@@ -415,6 +415,8 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
         title: 'Deleted Successfully',
         message: `Site "${confirmDeleteSite.name}" deleted starting from ${formatDateEn(deleteDateToUse)}. Recap data before this date remains saved.`,
       });
+
+      await loadData();
     } catch (err) {
       console.error('Error deleting site:', err);
       setIsDeletingSite(false);
@@ -470,6 +472,8 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
         title: 'Deleted Successfully',
         message: `${idsToDelete.length} selected sites deleted starting from ${formatDateEn(targetDateToUse)}. Data before this date remains preserved.`,
       });
+
+      await loadData();
     } catch (err) {
       console.error('Error bulk deleting sites:', err);
       setIsDeletingSite(false);

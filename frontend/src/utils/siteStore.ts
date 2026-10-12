@@ -311,23 +311,8 @@ export async function fetchSitesFromApi(): Promise<SiteItem[]> {
       const json = await res.json();
       const sitesArray: SiteItem[] = Array.isArray(json) ? json : (json && json.data ? json.data : []);
       if (Array.isArray(sitesArray)) {
-        if (sitesArray.length > 0) {
-          if (typeof window !== 'undefined') {
-            localStorage.setItem('sites_data_v3', JSON.stringify(sitesArray));
-          }
-          return sitesArray;
-        } else if (localSites.length > 0) {
-          // Auto-sync local storage sites back to server database if server returned empty data
-          fetchWithTimeout(
-            `${getSitesApiUrl()}/sync`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ sites: localSites }),
-            },
-            20000
-          ).catch(() => {});
-          return localSites;
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('sites_data_v3', JSON.stringify(sitesArray));
         }
         return sitesArray;
       }
@@ -587,23 +572,29 @@ export async function deleteSiteApi(siteId: string, deleteDate?: string, siteNam
 
   const cutoffDate = deleteDate ? getPreviousDateStr(deleteDate) : null;
 
-  if (deleteDate && cutoffDate) {
-    // Cutoff Delete: update master site with targetEndDate = cutoffDate and prune entries >= deleteDate
-    let foundMaster = false;
-    const updated = current
+  // Check if target site has any history before deleteDate
+  let hasPriorHistory = false;
+  if (deleteDate) {
+    hasPriorHistory = current.some((s) => {
+      if (!isTargetSiteEntry(s)) return false;
+      const sDate = s.targetDate || (s.lastTestedAt ? s.lastTestedAt.split('T')[0] : '');
+      return sDate && sDate < deleteDate;
+    });
+  }
+
+  let updated: SiteItem[];
+  if (hasPriorHistory && deleteDate && cutoffDate) {
+    // Retain historical data before deleteDate, cut off at cutoffDate
+    updated = current
       .filter((s) => {
         const sDate = s.targetDate || (s.lastTestedAt ? s.lastTestedAt.split('T')[0] : '');
-
-        if (isTargetSiteEntry(s)) {
-          if (sDate && sDate >= deleteDate) {
-            return false;
-          }
+        if (isTargetSiteEntry(s) && sDate && sDate >= deleteDate) {
+          return false;
         }
         return true;
       })
       .map((s) => {
         if (isTargetSiteEntry(s)) {
-          foundMaster = true;
           return {
             ...s,
             targetEndDate: cutoffDate,
@@ -611,40 +602,26 @@ export async function deleteSiteApi(siteId: string, deleteDate?: string, siteNam
         }
         return s;
       });
-
-    if (!foundMaster) {
-      updated.unshift({
-        id: targetSite?.id || `site_cutoff_${Date.now()}`,
-        name: resolvedName,
-        url: targetSite?.url || '',
-        status: targetSite?.status || 'BELUM_DICEK',
-        targetDate: targetSite?.targetDate || deleteDate,
-        targetEndDate: cutoffDate,
-      });
-    }
-
-    saveStoredSites(updated, { skipEvent: true, skipSync: true });
-
-    try {
-      const encodedId = encodeURIComponent(siteId);
-      const url = `${getSitesApiUrl()}/${encodedId}?targetDate=${encodeURIComponent(deleteDate)}`;
-      await fetchWithTimeout(url, { method: 'DELETE' }, 25000);
-    } catch {
-      // Silently fall back to local storage deletion
-    }
-    return true;
+  } else {
+    // Complete deletion: remove site completely
+    updated = current.filter((s) => !isTargetSiteEntry(s));
   }
 
-  // Full Unconditional Delete (No deleteDate)
-  const filtered = current.filter((s) => !isTargetSiteEntry(s));
-
-  saveStoredSites(filtered, { skipEvent: true, skipSync: true });
+  saveStoredSites(updated, { skipSync: true });
 
   try {
     const encodedId = encodeURIComponent(siteId);
-    await fetchWithTimeout(`${getSitesApiUrl()}/${encodedId}`, { method: 'DELETE' }, 25000);
+    let url = `${getSitesApiUrl()}/${encodedId}`;
+    if (deleteDate) {
+      url += `?targetDate=${encodeURIComponent(deleteDate)}`;
+    }
+    await fetchWithTimeout(url, { method: 'DELETE' }, 25000);
   } catch {
-    // Silently fall back
+    // Silently fall back to local storage deletion
+  }
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('sites_updated'));
   }
 
   return true;
@@ -655,43 +632,86 @@ export async function bulkDeleteSitesApi(siteIds: string[], targetDate?: string)
 
   const current = getStoredSites();
   const targetIdsSet = new Set<string>(siteIds);
-  const selectedEntries = current.filter((s) => targetIdsSet.has(s.id));
+  const targetNamesSet = new Set<string>();
 
-  const namesCutoffMap = new Map<string, { deleteDate: string; cutoffDate: string }>();
-
-  selectedEntries.forEach((s) => {
-    const sName = s.name.trim().toLowerCase();
-    const sDate = targetDate || s.targetDate || (s.lastTestedAt ? s.lastTestedAt.split('T')[0] : '');
-    if (sName && sDate) {
-      if (!namesCutoffMap.has(sName) || sDate < namesCutoffMap.get(sName)!.deleteDate) {
-        namesCutoffMap.set(sName, { deleteDate: sDate, cutoffDate: getPreviousDateStr(sDate) });
+  siteIds.forEach((id) => {
+    if (id.startsWith('daily_')) {
+      const match = id.match(/^daily_(.+)_\d{4}-\d{2}-\d{2}$/);
+      if (match) {
+        targetNamesSet.add(match[1].replace(/_/g, ' ').trim().toLowerCase());
       }
     }
   });
 
+  current.forEach((s) => {
+    if (targetIdsSet.has(s.id)) {
+      targetNamesSet.add(s.name.trim().toLowerCase());
+    }
+  });
+
+  const getPreviousDateStr = (dateStr: string): string => {
+    const parts = dateStr.split('-');
+    if (parts.length !== 3) return dateStr;
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    const day = parseInt(parts[2], 10);
+    const d = new Date(Date.UTC(year, month, day - 1));
+    return d.toISOString().split('T')[0];
+  };
+
+  const cutoffDate = targetDate ? getPreviousDateStr(targetDate) : null;
+
+  // Determine which sites have prior history before targetDate
+  const retainNamesSet = new Set<string>();
+  if (targetDate) {
+    current.forEach((s) => {
+      const sNameLower = s.name.trim().toLowerCase();
+      if (targetNamesSet.has(sNameLower) || targetIdsSet.has(s.id)) {
+        const sDate = s.targetDate || (s.lastTestedAt ? s.lastTestedAt.split('T')[0] : '');
+        if (sDate && sDate < targetDate) {
+          retainNamesSet.add(sNameLower);
+        }
+      }
+    });
+  }
+
+  const isSelectedSite = (s: SiteItem) => {
+    if (!s) return false;
+    const sId = (s.id || '').trim();
+    const sNameLower = (s.name || '').trim().toLowerCase();
+    return targetIdsSet.has(sId) || targetNamesSet.has(sNameLower);
+  };
+
   const filtered = current
     .filter((s) => {
+      if (!isSelectedSite(s)) return true;
       const sNameLower = s.name.trim().toLowerCase();
       const sDate = s.targetDate || (s.lastTestedAt ? s.lastTestedAt.split('T')[0] : '');
-      const cutoffInfo = namesCutoffMap.get(sNameLower);
-      if (cutoffInfo && sDate >= cutoffInfo.deleteDate) {
-        return false;
+
+      if (retainNamesSet.has(sNameLower) && targetDate && cutoffDate) {
+        // Retain prior records, prune targetDate onwards
+        if (sDate && sDate >= targetDate) {
+          return false;
+        }
+        return true;
       }
-      return true;
+      // No prior history: delete completely
+      return false;
     })
     .map((s) => {
-      const sNameLower = s.name.trim().toLowerCase();
-      const cutoffInfo = namesCutoffMap.get(sNameLower);
-      if (cutoffInfo) {
-        return {
-          ...s,
-          targetEndDate: cutoffInfo.cutoffDate,
-        };
+      if (isSelectedSite(s)) {
+        const sNameLower = s.name.trim().toLowerCase();
+        if (retainNamesSet.has(sNameLower) && cutoffDate) {
+          return {
+            ...s,
+            targetEndDate: cutoffDate,
+          };
+        }
       }
       return s;
     });
 
-  saveStoredSites(filtered, { skipEvent: true, skipSync: true });
+  saveStoredSites(filtered, { skipSync: true });
 
   try {
     const res = await fetchWithTimeout(
@@ -704,7 +724,7 @@ export async function bulkDeleteSitesApi(siteIds: string[], targetDate?: string)
       25000
     );
     if (!res || !res.ok) {
-      // Fallback to individual cutoff deletions
+      // Fallback to individual deletions
       await Promise.all(
         siteIds.map(async (id) => {
           const encodedId = encodeURIComponent(id);
@@ -718,6 +738,10 @@ export async function bulkDeleteSitesApi(siteIds: string[], targetDate?: string)
     }
   } catch (err) {
     console.warn('Bulk delete server error, falling back locally:', err);
+  }
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('sites_updated'));
   }
 
   return true;
