@@ -135,12 +135,16 @@ export class SitesService {
             ? latestTest.testedAt.toISOString().split('T')[0]
             : (site.createdAt ? site.createdAt.toISOString().split('T')[0] : todayStr);
 
+          const effectiveStatus = latestTest
+            ? (latestTest.result === 'BERHASIL' ? 'BERHASIL' : 'GAGAL')
+            : (site.status === 'SELESAI' ? 'BERHASIL' : site.status === 'GAGAL_ADA_REPORT' ? 'GAGAL' : site.status);
+
           // 1. Base master site representation
           formattedSites.push({
             id: site.id,
             name: site.name,
             url: site.url,
-            status: site.status === 'SELESAI' ? 'BERHASIL' : site.status === 'GAGAL_ADA_REPORT' ? 'GAGAL' : site.status,
+            status: effectiveStatus,
             lastTestedBy: latestTest?.testerName || site.currentTester || null,
             lastTestedAt: latestTest ? latestTest.testedAt.toISOString() : site.completedAt ? site.completedAt.toISOString() : null,
             targetDate: masterTargetDate,
