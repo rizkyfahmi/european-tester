@@ -299,6 +299,23 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
         siteUrl: site.url,
       });
 
+      setSites((prev) =>
+        prev.map((s) => {
+          if (
+            s.id === site.id ||
+            (s.name && s.name.trim().toLowerCase() === site.name.trim().toLowerCase() && (s.targetDate === site.targetDate || !s.targetDate))
+          ) {
+            return {
+              ...s,
+              status: resultStatus,
+              lastTestedBy: finalTester,
+              lastTestedAt: new Date().toISOString(),
+            };
+          }
+          return s;
+        })
+      );
+
       await loadData();
       setConfirmTestSubmission(null);
       setCustomAlert({
