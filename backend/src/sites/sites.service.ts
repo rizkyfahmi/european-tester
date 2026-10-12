@@ -754,8 +754,6 @@ export class SitesService {
 
     const cutoffDate = deleteDate ? getPreviousDateStr(deleteDate) : null;
 
-    let isRetained = false;
-
     if (this.prisma.isConnected) {
       try {
         const matchingSites = await this.prisma.site.findMany({
@@ -770,121 +768,48 @@ export class SitesService {
 
         if (matchingSites.length > 0) {
           deletedSite = matchingSites[0];
-          const siteCreatedAtStr = deletedSite.createdAt ? deletedSite.createdAt.toISOString().split('T')[0] : '';
+          const siteIdsToDelete = matchingSites.map((s) => s.id);
 
-          // Check if there are any test results strictly before deleteDate
-          let hasPriorHistory = false;
-          if (deleteDate) {
-            const deleteStart = new Date(`${deleteDate}T00:00:00.000Z`);
-            const priorCount = await this.prisma.testingResult.count({
-              where: {
-                siteId: { in: matchingSites.map((s) => s.id) },
-                testedAt: { lt: deleteStart },
-              },
-            });
-            if (priorCount > 0 || (siteCreatedAtStr && deleteDate > siteCreatedAtStr)) {
-              hasPriorHistory = true;
-            }
-          }
+          // Complete hard deletion: remove all testing results and the site row itself
+          await this.prisma.testingResult.deleteMany({
+            where: {
+              siteId: { in: siteIdsToDelete },
+            },
+          });
 
-          // Cumulative Range Retention Logic:
-          // If the site has prior history before deleteDate, retain up to cutoffDate
-          if (hasPriorHistory && deleteDate && cutoffDate) {
-            isRetained = true;
-            await this.prisma.site.updateMany({
-              where: {
-                id: { in: matchingSites.map((s) => s.id) },
-              },
+          await this.prisma.site.deleteMany({
+            where: {
+              id: { in: siteIdsToDelete },
+            },
+          });
+
+          try {
+            await this.prisma.auditLog.create({
               data: {
-                targetEndDate: new Date(`${cutoffDate}T23:59:59.999Z`),
+                recordId: deletedSite.id,
+                entityType: 'SITE',
+                changedFrom: JSON.stringify(deletedSite),
+                changedTo: 'DELETED_COMPLETELY',
+                changedBy: 'System / User',
+                source: AuditSource.WEBSITE,
               },
             });
-
-            // Clean data from deleteDate onwards
-            const deleteStart = new Date(`${deleteDate}T00:00:00.000Z`);
-            await this.prisma.testingResult.deleteMany({
-              where: {
-                siteId: { in: matchingSites.map((s) => s.id) },
-                testedAt: { gte: deleteStart },
-              },
-            });
-
-            try {
-              await this.prisma.auditLog.create({
-                data: {
-                  recordId: deletedSite.id,
-                  entityType: 'SITE',
-                  changedFrom: JSON.stringify(deletedSite),
-                  changedTo: `CUTOFF_AT_${cutoffDate}`,
-                  changedBy: 'System / User',
-                  source: AuditSource.WEBSITE,
-                },
-              });
-            } catch (auditErr) {}
-          } else {
-            // Full delete if deleting on/before creation date, or no prior history
-            await this.prisma.testingResult.deleteMany({
-              where: {
-                siteId: { in: matchingSites.map((s) => s.id) },
-              },
-            });
-
-            await this.prisma.site.deleteMany({
-              where: {
-                id: { in: matchingSites.map((s) => s.id) },
-              },
-            });
-
-            try {
-              await this.prisma.auditLog.create({
-                data: {
-                  recordId: deletedSite.id,
-                  entityType: 'SITE',
-                  changedFrom: JSON.stringify(deletedSite),
-                  changedTo: 'DELETED',
-                  changedBy: 'System / User',
-                  source: AuditSource.WEBSITE,
-                },
-              });
-            } catch (auditErr) {
-              console.warn('Could not write audit log for delete:', auditErr);
-            }
-          }
+          } catch (auditErr) {}
         }
       } catch (dbErr) {
-        console.warn('Prisma delete site error:', dbErr);
+        console.warn('Prisma complete delete site error:', dbErr);
       }
     }
 
-    let updated: SiteItem[];
-    if (isRetained && deleteDate && cutoffDate) {
-      updated = fileSites
-        .filter((s) => {
-          const sDate = s.targetDate || (s.lastTestedAt ? s.lastTestedAt.split('T')[0] : '');
-          if (isTargetSiteEntry(s) && sDate && sDate >= deleteDate) {
-            return false;
-          }
-          return true;
-        })
-        .map((s) => {
-          if (isTargetSiteEntry(s)) {
-            return { ...s, targetEndDate: cutoffDate };
-          }
-          return s;
-        });
-    } else {
-      updated = fileSites.filter((s) => !isTargetSiteEntry(s));
-    }
-
+    // Completely remove from file backup
+    const updated = fileSites.filter((s) => !isTargetSiteEntry(s));
     this.writeSitesToFile(updated);
 
     return {
       success: true,
       id: cleanId,
-      deleteDate,
-      cutoffDate,
       deletedSite,
-      isRetained,
+      deletedCompletely: true,
     };
   }
 
@@ -980,19 +905,8 @@ export class SitesService {
               },
             });
             site.id = existingDbSite.id;
-          } else {
-            const statusEnum = site.status === 'BERHASIL' ? SiteStatus.SELESAI : site.status === 'GAGAL' ? SiteStatus.GAGAL_ADA_REPORT : SiteStatus.BELUM_DICEK;
-            const newDbSite = await this.prisma.site.create({
-              data: {
-                name: siteName,
-                url: siteUrl,
-                status: statusEnum,
-                currentTester: site.lastTestedBy?.trim() || null,
-                version: 1,
-              },
-            });
-            site.id = newDbSite.id;
           }
+          // Do not recreate deleted sites during background sync
         } catch (dbErr) {
           console.warn('Prisma sync insert error:', dbErr);
         }

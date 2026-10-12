@@ -405,59 +405,13 @@ function refreshAllData() {
     mainSheet = ss.insertSheet(CONFIG.PRIMARY_SHEET_NAME, 0);
   }
 
-  // If server returned empty data, attempt to recover existing rows from Google Sheet & auto-sync back to server
-  if (sitesData.length === 0 && mainSheet.getLastRow() > 1) {
-    const lastRow = mainSheet.getLastRow();
-    const existingValues = mainSheet.getRange(2, 1, lastRow - 1, 8).getValues();
-    const recoveredSites = [];
-    existingValues.forEach(function(row) {
-      const name = String(row[1] || '').trim();
-      const url = String(row[2] || '').trim();
-      const testerName = String(row[3] || '').trim();
-      const targetDate = String(row[4] || '').trim();
-      const statusInput = String(row[5] || '').trim().toUpperCase();
-      const id = String(row[6] || '').trim();
-      const version = parseInt(row[7], 10) || 1;
-
-      if (name) {
-        let statusEnum = 'BELUM_DICEK';
-        if (statusInput === 'SUCCESSFUL' || statusInput === 'BERHASIL' || statusInput === 'SUCCESS' || statusInput === 'PASSED' || statusInput === 'SELESAI') {
-          statusEnum = 'BERHASIL';
-        } else if (statusInput === 'FAILED' || statusInput === 'GAGAL' || statusInput === 'FAIL') {
-          statusEnum = 'GAGAL';
-        }
-
-        recoveredSites.push({
-          id: id || `site_sheet_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-          name: name,
-          url: url || `https://${name.toLowerCase().replace(/[^a-z0-9]/g, '')}.com`,
-          status: statusEnum,
-          lastTestedBy: (testerName && testerName !== '-' && testerName !== 'Google Sheets User') ? testerName : null,
-          lastTestedAt: targetDate ? targetDate + 'T12:00:00.000Z' : null,
-          targetDate: targetDate || getTodayDateStr(),
-          version: version,
-        });
-      }
-    });
-
-    if (recoveredSites.length > 0) {
-      sitesData = recoveredSites;
-      // Auto-sync recovered sheet sites to backend server database
-      try {
-        const syncOptions = {
-          method: 'post',
-          contentType: 'application/json',
-          headers: {
-            'X-API-KEY': CONFIG.API_KEY,
-            'Authorization': 'Bearer ' + CONFIG.API_KEY,
-            'ngrok-skip-browser-warning': 'true',
-          },
-          payload: JSON.stringify({ sites: recoveredSites }),
-          muteHttpExceptions: true,
-        };
-        UrlFetchApp.fetch(`${CONFIG.BACKEND_URL}/sites/sync`, syncOptions);
-      } catch (e) {}
-    }
+  // If server returned empty data, clear sheet cleanly and finish
+  if (sitesData.length === 0) {
+    mainSheet.clear();
+    mainSheet.getRange(1, 1, mainSheet.getMaxRows(), mainSheet.getMaxColumns()).clearDataValidations();
+    formatSystemFields();
+    ui.alert('ℹ️ Seluruh data situs telah dibersihkan / kosong di server.');
+    return;
   }
 
   // Process daily master entries for all active dates from site start date up to Today / targetEndDate

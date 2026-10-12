@@ -560,53 +560,8 @@ export async function deleteSiteApi(siteId: string, deleteDate?: string, siteNam
     return false;
   };
 
-  const getPreviousDateStr = (dateStr: string): string => {
-    const parts = dateStr.split('-');
-    if (parts.length !== 3) return dateStr;
-    const year = parseInt(parts[0], 10);
-    const month = parseInt(parts[1], 10) - 1;
-    const day = parseInt(parts[2], 10);
-    const d = new Date(Date.UTC(year, month, day - 1));
-    return d.toISOString().split('T')[0];
-  };
-
-  const cutoffDate = deleteDate ? getPreviousDateStr(deleteDate) : null;
-
-  // Check if target site has any history before deleteDate
-  let hasPriorHistory = false;
-  if (deleteDate) {
-    hasPriorHistory = current.some((s) => {
-      if (!isTargetSiteEntry(s)) return false;
-      const sDate = s.targetDate || (s.lastTestedAt ? s.lastTestedAt.split('T')[0] : '');
-      return sDate && sDate < deleteDate;
-    });
-  }
-
-  let updated: SiteItem[];
-  if (hasPriorHistory && deleteDate && cutoffDate) {
-    // Retain historical data before deleteDate, cut off at cutoffDate
-    updated = current
-      .filter((s) => {
-        const sDate = s.targetDate || (s.lastTestedAt ? s.lastTestedAt.split('T')[0] : '');
-        if (isTargetSiteEntry(s) && sDate && sDate >= deleteDate) {
-          return false;
-        }
-        return true;
-      })
-      .map((s) => {
-        if (isTargetSiteEntry(s)) {
-          return {
-            ...s,
-            targetEndDate: cutoffDate,
-          };
-        }
-        return s;
-      });
-  } else {
-    // Complete deletion: remove site completely
-    updated = current.filter((s) => !isTargetSiteEntry(s));
-  }
-
+  // Complete hard deletion: remove site completely
+  const updated = current.filter((s) => !isTargetSiteEntry(s));
   saveStoredSites(updated, { skipSync: true });
 
   try {
@@ -649,32 +604,6 @@ export async function bulkDeleteSitesApi(siteIds: string[], targetDate?: string)
     }
   });
 
-  const getPreviousDateStr = (dateStr: string): string => {
-    const parts = dateStr.split('-');
-    if (parts.length !== 3) return dateStr;
-    const year = parseInt(parts[0], 10);
-    const month = parseInt(parts[1], 10) - 1;
-    const day = parseInt(parts[2], 10);
-    const d = new Date(Date.UTC(year, month, day - 1));
-    return d.toISOString().split('T')[0];
-  };
-
-  const cutoffDate = targetDate ? getPreviousDateStr(targetDate) : null;
-
-  // Determine which sites have prior history before targetDate
-  const retainNamesSet = new Set<string>();
-  if (targetDate) {
-    current.forEach((s) => {
-      const sNameLower = s.name.trim().toLowerCase();
-      if (targetNamesSet.has(sNameLower) || targetIdsSet.has(s.id)) {
-        const sDate = s.targetDate || (s.lastTestedAt ? s.lastTestedAt.split('T')[0] : '');
-        if (sDate && sDate < targetDate) {
-          retainNamesSet.add(sNameLower);
-        }
-      }
-    });
-  }
-
   const isSelectedSite = (s: SiteItem) => {
     if (!s) return false;
     const sId = (s.id || '').trim();
@@ -682,35 +611,8 @@ export async function bulkDeleteSitesApi(siteIds: string[], targetDate?: string)
     return targetIdsSet.has(sId) || targetNamesSet.has(sNameLower);
   };
 
-  const filtered = current
-    .filter((s) => {
-      if (!isSelectedSite(s)) return true;
-      const sNameLower = s.name.trim().toLowerCase();
-      const sDate = s.targetDate || (s.lastTestedAt ? s.lastTestedAt.split('T')[0] : '');
-
-      if (retainNamesSet.has(sNameLower) && targetDate && cutoffDate) {
-        // Retain prior records, prune targetDate onwards
-        if (sDate && sDate >= targetDate) {
-          return false;
-        }
-        return true;
-      }
-      // No prior history: delete completely
-      return false;
-    })
-    .map((s) => {
-      if (isSelectedSite(s)) {
-        const sNameLower = s.name.trim().toLowerCase();
-        if (retainNamesSet.has(sNameLower) && cutoffDate) {
-          return {
-            ...s,
-            targetEndDate: cutoffDate,
-          };
-        }
-      }
-      return s;
-    });
-
+  // Complete hard deletion of all selected sites
+  const filtered = current.filter((s) => !isSelectedSite(s));
   saveStoredSites(filtered, { skipSync: true });
 
   try {
