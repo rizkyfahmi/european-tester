@@ -6,15 +6,20 @@ export class ApiKeyGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const apiKeyHeader = request.headers['x-api-key'] || request.headers['authorization'];
 
-    const validApiKey = process.env.GOOGLE_SHEETS_API_KEY || 'qa-secret-api-key-2026';
+    const rawKey = process.env.GOOGLE_SHEETS_API_KEY || 'qa-secret-api-key-2026';
+    const validApiKey = rawKey.trim().replace(/^["']|["']$/g, '').trim();
 
     if (!apiKeyHeader) {
       throw new UnauthorizedException('API Key header (X-API-KEY) missing.');
     }
 
-    const cleanedKey = apiKeyHeader.replace('Bearer ', '').trim();
+    const cleanedKey = apiKeyHeader
+      .replace(/^Bearer\s+/i, '')
+      .trim()
+      .replace(/^["']|["']$/g, '')
+      .trim();
 
-    if (cleanedKey !== validApiKey) {
+    if (cleanedKey !== validApiKey && cleanedKey !== rawKey.trim()) {
       throw new UnauthorizedException('Invalid API Key provided.');
     }
 

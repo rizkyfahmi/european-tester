@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+export const maxDuration = 60;
+export const dynamic = 'force-dynamic';
+
 const BACKEND_URL = process.env.NESTJS_BACKEND_URL || 'https://european-tester-nine.vercel.app/api/v1';
 
 let globalProxySitesCache: any[] = [];

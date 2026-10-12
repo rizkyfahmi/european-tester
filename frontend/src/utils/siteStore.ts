@@ -73,7 +73,7 @@ export function saveStoredSites(sites: SiteItem[], options?: { skipEvent?: boole
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sites: sites || [] }),
       },
-      5000
+      20000
     ).catch(() => {});
   }
 }
@@ -109,8 +109,8 @@ export function addTestingLog(log: TestingLog): void {
   window.dispatchEvent(new Event('logs_updated'));
 }
 
-// Helper function for fetch with automatic 12.0s timeout fallback
-async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs: number = 12000): Promise<Response | null> {
+// Helper function for fetch with automatic 25.0s timeout fallback
+async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs: number = 25000): Promise<Response | null> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -306,7 +306,7 @@ export function ensureDailyMasterSites(sites: SiteItem[], targetDateStr?: string
 export async function fetchSitesFromApi(): Promise<SiteItem[]> {
   const localSites = getStoredSites();
   try {
-    const res = await fetchWithTimeout(getSitesApiUrl(), { cache: 'no-store' }, 8000);
+    const res = await fetchWithTimeout(getSitesApiUrl(), { cache: 'no-store' }, 25000);
     if (res && res.ok) {
       const json = await res.json();
       const sitesArray: SiteItem[] = Array.isArray(json) ? json : (json && json.data ? json.data : []);
@@ -325,7 +325,7 @@ export async function fetchSitesFromApi(): Promise<SiteItem[]> {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ sites: localSites }),
             },
-            5000
+            20000
           ).catch(() => {});
           return localSites;
         }
@@ -341,7 +341,7 @@ export async function fetchSitesFromApi(): Promise<SiteItem[]> {
 export async function fetchLogsFromApi(): Promise<TestingLog[]> {
   const localLogs = getStoredLogs();
   try {
-    const res = await fetchWithTimeout(getLogsApiUrl(), { cache: 'no-store' }, 4000);
+    const res = await fetchWithTimeout(getLogsApiUrl(), { cache: 'no-store' }, 20000);
     if (res && res.ok) {
       const json = await res.json();
       const logsArray = Array.isArray(json) ? json : (json && json.data ? json.data : []);
@@ -400,7 +400,7 @@ export async function createSiteApi(name: string, url: string, targetDate?: stri
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: cleanName, url: cleanUrl, targetDate: finalTargetDate, targetEndDate: finalTargetEndDate }),
       },
-      8000
+      25000
     );
     if (res && res.ok) {
       const json = await res.json();
@@ -503,7 +503,7 @@ export async function submitTestResultApi(
           targetDate: targetDateStr,
         }),
       },
-      8000
+      25000
     );
     if (res && res.ok) {
       const data = await res.json();
@@ -628,7 +628,7 @@ export async function deleteSiteApi(siteId: string, deleteDate?: string, siteNam
     try {
       const encodedId = encodeURIComponent(siteId);
       const url = `${getSitesApiUrl()}/${encodedId}?targetDate=${encodeURIComponent(deleteDate)}`;
-      await fetchWithTimeout(url, { method: 'DELETE' }, 8000);
+      await fetchWithTimeout(url, { method: 'DELETE' }, 25000);
     } catch {
       // Silently fall back to local storage deletion
     }
@@ -642,7 +642,7 @@ export async function deleteSiteApi(siteId: string, deleteDate?: string, siteNam
 
   try {
     const encodedId = encodeURIComponent(siteId);
-    await fetchWithTimeout(`${getSitesApiUrl()}/${encodedId}`, { method: 'DELETE' }, 8000);
+    await fetchWithTimeout(`${getSitesApiUrl()}/${encodedId}`, { method: 'DELETE' }, 25000);
   } catch {
     // Silently fall back
   }
@@ -703,7 +703,7 @@ export async function bulkDeleteSitesApi(siteIds: string[]): Promise<boolean> {
         if (dateStr) {
           url += `?targetDate=${encodeURIComponent(dateStr)}`;
         }
-        await fetchWithTimeout(url, { method: 'DELETE' }, 8000);
+        await fetchWithTimeout(url, { method: 'DELETE' }, 25000);
       })
     );
   } catch {

@@ -36,6 +36,7 @@ export class SitesService {
   constructor(private readonly prisma: PrismaService) {}
 
   private static globalSitesMemory: SiteItem[] = [];
+  private static globalLogsMemory: TestingLog[] = [];
 
   private getSitesFilePath(): string {
     return path.join(process.cwd(), 'data', 'sites.json');
@@ -85,10 +86,11 @@ export class SitesService {
     } catch (err) {
       console.error('Error reading persistent logs JSON:', err);
     }
-    return [];
+    return SitesService.globalLogsMemory;
   }
 
   private writeLogsToFile(logs: TestingLog[]): void {
+    SitesService.globalLogsMemory = logs;
     try {
       const file = this.getLogsFilePath();
       const dir = path.dirname(file);
