@@ -257,6 +257,7 @@ export class GoogleSheetsService {
             },
           });
         } else if (siteName) {
+          const siteStartDate = targetDate ? new Date(`${targetDate}T12:00:00.000Z`) : new Date();
           dbSite = await this.prisma.site.create({
             data: {
               name: siteName,
@@ -264,6 +265,7 @@ export class GoogleSheetsService {
               status: statusEnum,
               currentTester: cleanTester,
               version: 1,
+              createdAt: siteStartDate,
               ...(statusEnum !== SiteStatus.BELUM_DICEK ? { completedAt: new Date() } : {}),
             },
           });

@@ -103,6 +103,16 @@ export class SitesService {
     }
   }
 
+  private getNextDateStr(dateStr: string): string {
+    const parts = dateStr.split('-');
+    if (parts.length !== 3) return dateStr;
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    const day = parseInt(parts[2], 10);
+    const d = new Date(Date.UTC(year, month, day + 1, 12, 0, 0));
+    return d.toISOString().split('T')[0];
+  }
+
   // 1. GET ALL SITES FROM DATABASE WITH FILE FALLBACK
   async getAllSites(): Promise<SiteItem[]> {
     try {
@@ -121,74 +131,61 @@ export class SitesService {
 
         sites.forEach((site) => {
           const createdDateStr = site.createdAt ? site.createdAt.toISOString().split('T')[0] : todayStr;
-          const siteStatusStr = site.status === 'SELESAI' ? 'BERHASIL' : site.status === 'GAGAL_ADA_REPORT' ? 'GAGAL' : site.status;
+          const siteStartDate = createdDateStr;
           const siteEndDateStr = site.targetEndDate ? site.targetEndDate.toISOString().split('T')[0] : null;
 
-          // Track dates that have tests
-          const testedDateSet = new Set<string>();
-
-          // 1. Add records for each unique test date from testingResults (only if on or before targetEndDate)
+          // Map all tests by their testedAt date
+          const testByDate = new Map<string, any>();
           if (Array.isArray(site.testingResults)) {
             site.testingResults.forEach((test) => {
               const testDateStr = test.testedAt ? test.testedAt.toISOString().split('T')[0] : todayStr;
-              if (siteEndDateStr && testDateStr > siteEndDateStr) {
-                return; // Historical retention: do not show records after cutoff date
-              }
-              if (!testedDateSet.has(testDateStr)) {
-                testedDateSet.add(testDateStr);
-                formattedSites.push({
-                  id: site.id,
-                  name: site.name,
-                  url: site.url,
-                  status: test.result === 'BERHASIL' ? 'BERHASIL' : 'GAGAL',
-                  lastTestedBy: test.testerName,
-                  lastTestedAt: test.testedAt.toISOString(),
-                  targetDate: testDateStr,
-                  targetEndDate: siteEndDateStr,
-                  notes: test.notes || null,
-                  version: test.version || site.version,
-                  createdAt: site.createdAt.toISOString(),
-                  updatedAt: test.updatedAt ? test.updatedAt.toISOString() : site.updatedAt.toISOString(),
-                });
+              if (!testByDate.has(testDateStr)) {
+                testByDate.set(testDateStr, test);
               }
             });
           }
 
-          // 2. If the site itself has a completed status for today but not in testingResults (and today <= targetEndDate)
-          if (siteStatusStr !== 'BELUM_DICEK' && !testedDateSet.has(todayStr) && (!siteEndDateStr || todayStr <= siteEndDateStr)) {
-            testedDateSet.add(todayStr);
-            formattedSites.push({
-              id: site.id,
-              name: site.name,
-              url: site.url,
-              status: siteStatusStr,
-              lastTestedBy: site.currentTester || null,
-              lastTestedAt: site.completedAt ? site.completedAt.toISOString() : site.updatedAt.toISOString(),
-              targetDate: todayStr,
-              targetEndDate: siteEndDateStr,
-              notes: null,
-              version: site.version,
-              createdAt: site.createdAt.toISOString(),
-              updatedAt: site.updatedAt.toISOString(),
-            });
-          }
+          // Generate cumulative rows from siteStartDate up to todayStr (or cutoff siteEndDateStr)
+          const effectiveMaxDate = siteEndDateStr && siteEndDateStr < todayStr ? siteEndDateStr : todayStr;
 
-          // 3. Always include the master baseline prototype with creation date (if createdDateStr <= targetEndDate)
-          if (!testedDateSet.has(createdDateStr) && (!siteEndDateStr || createdDateStr <= siteEndDateStr)) {
-            formattedSites.push({
-              id: site.id,
-              name: site.name,
-              url: site.url,
-              status: 'BELUM_DICEK',
-              lastTestedBy: null,
-              lastTestedAt: null,
-              targetDate: createdDateStr,
-              targetEndDate: siteEndDateStr,
-              notes: null,
-              version: site.version,
-              createdAt: site.createdAt.toISOString(),
-              updatedAt: site.updatedAt.toISOString(),
-            });
+          let curDate = siteStartDate;
+          let safety = 0;
+          while (curDate <= effectiveMaxDate && safety < 365) {
+            safety++;
+            const test = testByDate.get(curDate);
+            if (test) {
+              formattedSites.push({
+                id: curDate === siteStartDate ? site.id : `daily_${site.name.toLowerCase().replace(/\s+/g, '_')}_${curDate}`,
+                name: site.name,
+                url: site.url,
+                status: test.result === 'BERHASIL' ? 'BERHASIL' : 'GAGAL',
+                lastTestedBy: test.testerName,
+                lastTestedAt: test.testedAt ? test.testedAt.toISOString() : null,
+                targetDate: curDate,
+                targetEndDate: siteEndDateStr,
+                notes: test.notes || null,
+                version: test.version || site.version,
+                createdAt: site.createdAt.toISOString(),
+                updatedAt: test.updatedAt ? test.updatedAt.toISOString() : site.updatedAt.toISOString(),
+              });
+            } else {
+              formattedSites.push({
+                id: curDate === siteStartDate ? site.id : `daily_${site.name.toLowerCase().replace(/\s+/g, '_')}_${curDate}`,
+                name: site.name,
+                url: site.url,
+                status: 'BELUM_DICEK',
+                lastTestedBy: null,
+                lastTestedAt: null,
+                targetDate: curDate,
+                targetEndDate: siteEndDateStr,
+                notes: null,
+                version: site.version,
+                createdAt: site.createdAt.toISOString(),
+                updatedAt: site.updatedAt.toISOString(),
+              });
+            }
+
+            curDate = this.getNextDateStr(curDate);
           }
         });
 
@@ -253,6 +250,8 @@ export class SitesService {
       return normExistingName === normNewName || (normExistingUrl && normExistingUrl === normNewUrl);
     });
 
+    const siteStartDate = new Date(`${targetDate}T12:00:00.000Z`);
+
     if (existingDup) {
       // Reactivate cut-off site or return existing active site gracefully
       const fileSites = this.readSitesFromFile();
@@ -262,6 +261,7 @@ export class SitesService {
             ...s,
             url: formattedUrl,
             targetEndDate: null, // Clear cutoff to reactivate
+            createdAt: siteStartDate.toISOString(),
           };
         }
         return s;
@@ -279,6 +279,7 @@ export class SitesService {
             },
             data: {
               url: formattedUrl,
+              createdAt: siteStartDate,
             },
           });
         } catch (e) {}
@@ -303,7 +304,7 @@ export class SitesService {
       targetEndDate,
       notes: null,
       version: 1,
-      createdAt: new Date().toISOString(),
+      createdAt: siteStartDate.toISOString(),
       updatedAt: new Date().toISOString(),
     };
 
@@ -315,6 +316,7 @@ export class SitesService {
             url: formattedUrl,
             status: SiteStatus.BELUM_DICEK,
             version: 1,
+            createdAt: siteStartDate,
           },
         });
 
@@ -345,7 +347,7 @@ export class SitesService {
           targetEndDate,
           notes: null,
           version: newSite.version,
-          createdAt: newSite.createdAt.toISOString(),
+          createdAt: siteStartDate.toISOString(),
           updatedAt: newSite.updatedAt.toISOString(),
         };
 

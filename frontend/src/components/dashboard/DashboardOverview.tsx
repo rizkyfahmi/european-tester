@@ -128,21 +128,10 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
     };
   }, [forcedRole]);
 
-  // Set default date filter to today & update master sites when date filter changes
   useEffect(() => {
-    const todayStr = getTodayDateStr();
-    if (!dateFilterVal) {
-      setDateFilterVal(todayStr);
-      dateFilterRef.current = todayStr;
-    }
-  }, []);
-
-  useEffect(() => {
-    if (dateFilterVal) {
-      dateFilterRef.current = dateFilterVal;
-      const processed = ensureDailyMasterSites(sites, dateFilterVal);
-      setSites(processed);
-    }
+    dateFilterRef.current = dateFilterVal;
+    const processed = ensureDailyMasterSites(sites, dateFilterVal || undefined);
+    setSites(processed);
   }, [dateFilterVal]);
 
   const spreadsheetUrl = getSpreadsheetUrl();
@@ -244,7 +233,7 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
 
   const resetAllFilters = () => {
     setStatusFilter('Semua');
-    setDateFilterVal(getTodayDateStr());
+    setDateFilterVal('');
     setSearchQuery('');
   };
 
@@ -362,7 +351,8 @@ export default function DashboardOverview({ forcedRole }: DashboardOverviewProps
       // Exact 0.5 sec delay for smooth UI feedback
       await new Promise((r) => setTimeout(r, 500));
 
-      setDateFilterVal(targetDate);
+      // Show all cumulative rekap dates from start date up to today
+      setDateFilterVal('');
       await loadData();
       setNewSiteName('');
       setNewSiteUrl('');
