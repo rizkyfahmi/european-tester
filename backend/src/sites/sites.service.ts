@@ -111,6 +111,7 @@ export class SitesService {
           include: {
             testingResults: {
               orderBy: { testedAt: 'desc' },
+              take: 1,
             },
           },
           orderBy: { createdAt: 'desc' },
@@ -124,70 +125,34 @@ export class SitesService {
         });
         const todayStr = new Date().toISOString().split('T')[0];
 
-        const formattedSites: SiteItem[] = [];
-
-        sites.forEach((site) => {
+        const formattedSites = sites.map((site) => {
           const latestTest = site.testingResults[0];
           const cached = fileMap.get(site.id) || fileMap.get(site.name.trim().toLowerCase());
+          const targetDate = cached?.targetDate || (site.createdAt ? site.createdAt.toISOString().split('T')[0] : todayStr);
           const targetEndDate = cached?.targetEndDate || null;
 
-          const masterTargetDate = latestTest
-            ? latestTest.testedAt.toISOString().split('T')[0]
-            : (site.createdAt ? site.createdAt.toISOString().split('T')[0] : todayStr);
-
-          const effectiveStatus = latestTest
-            ? (latestTest.result === 'BERHASIL' ? 'BERHASIL' : 'GAGAL')
-            : (site.status === 'SELESAI' ? 'BERHASIL' : site.status === 'GAGAL_ADA_REPORT' ? 'GAGAL' : site.status);
-
-          // 1. Base master site representation
-          formattedSites.push({
+          return {
             id: site.id,
             name: site.name,
             url: site.url,
-            status: effectiveStatus,
+            status: site.status === 'SELESAI' ? 'BERHASIL' : site.status === 'GAGAL_ADA_REPORT' ? 'GAGAL' : site.status,
             lastTestedBy: latestTest?.testerName || site.currentTester || null,
             lastTestedAt: latestTest ? latestTest.testedAt.toISOString() : site.completedAt ? site.completedAt.toISOString() : null,
-            targetDate: masterTargetDate,
+            targetDate,
             targetEndDate,
             notes: latestTest?.notes || null,
             version: site.version,
             createdAt: site.createdAt.toISOString(),
             updatedAt: site.updatedAt.toISOString(),
-          });
-
-          // 2. Expose daily testing results for all dates tested
-          site.testingResults.forEach((test) => {
-            const testDate = test.testedAt.toISOString().split('T')[0];
-            formattedSites.push({
-              id: `daily_${site.name.toLowerCase().replace(/\s+/g, '_')}_${testDate}`,
-              name: site.name,
-              url: site.url,
-              status: test.result === 'BERHASIL' ? 'BERHASIL' : 'GAGAL',
-              lastTestedBy: test.testerName,
-              lastTestedAt: test.testedAt.toISOString(),
-              targetDate: testDate,
-              targetEndDate,
-              notes: test.notes || null,
-              version: test.version,
-              createdAt: site.createdAt.toISOString(),
-              updatedAt: test.updatedAt.toISOString(),
-            });
-          });
+          };
         });
 
         // Merge DB sites and File sites so all daily records created/updated are preserved
         const mergedMap = new Map<string, SiteItem>();
-        formattedSites.forEach((s) => {
-          const sDate = s.targetDate || '';
-          const key = `${s.name.trim().toLowerCase()}_${sDate}`;
-          if (!mergedMap.has(key) || (mergedMap.get(key)!.status === 'BELUM_DICEK' && s.status !== 'BELUM_DICEK')) {
-            mergedMap.set(key, s);
-          }
-        });
+        formattedSites.forEach((s) => mergedMap.set(s.id, s));
         fileSites.forEach((s) => {
           if (s && s.id) {
-            const sDate = s.targetDate || '';
-            const key = `${s.name.trim().toLowerCase()}_${sDate}`;
+            const key = s.id;
             if (!mergedMap.has(key)) {
               mergedMap.set(key, s);
             }
@@ -412,18 +377,8 @@ export class SitesService {
               ? ReportStatus.ADA
               : ReportStatus.TIDAK_ADA;
 
-          const testDateObj = new Date(`${targetDate}T12:00:00.000Z`);
-          const targetDayStart = new Date(`${targetDate}T00:00:00.000Z`);
-          const targetDayEnd = new Date(`${targetDate}T23:59:59.999Z`);
-
           const existingResult = await this.prisma.testingResult.findFirst({
-            where: {
-              siteId: site.id,
-              testedAt: {
-                gte: targetDayStart,
-                lte: targetDayEnd,
-              },
-            },
+            where: { siteId: site.id },
             orderBy: { createdAt: 'desc' },
           });
 
@@ -437,7 +392,7 @@ export class SitesService {
                 reportStatus: reportStatusEnum,
                 notes: finalNotes,
                 version: existingResult.version + 1,
-                testedAt: testDateObj,
+                testedAt: new Date(),
               },
             });
           } else {
@@ -449,7 +404,7 @@ export class SitesService {
                 reportStatus: reportStatusEnum,
                 notes: finalNotes,
                 version: 1,
-                testedAt: testDateObj,
+                testedAt: new Date(),
               },
             });
           }
@@ -790,6 +745,7 @@ export class SitesService {
       return { success: true, id: cleanId, deleteDate: null, cutoffDate: null };
     }
 
+    // Cutoff Delete (deleteDate IS specified) -> PRESERVE historical records before deleteDate!
     if (this.prisma.isConnected) {
       try {
         const matchingSites = await this.prisma.site.findMany({
@@ -802,11 +758,6 @@ export class SitesService {
         });
         if (matchingSites.length > 0) {
           deletedSite = matchingSites[0];
-          await this.prisma.site.deleteMany({
-            where: {
-              id: { in: matchingSites.map((s) => s.id) },
-            },
-          });
         }
       } catch (dbErr) {
         console.warn('Prisma cutoff site query error:', dbErr);
@@ -905,15 +856,11 @@ export class SitesService {
           });
 
           if (existingDbSite) {
-            // NEVER downgrade an already tested/completed site to BELUM_DICEK via bulk sync
-            const isDowngradeToBelumDicek = statusEnum === SiteStatus.BELUM_DICEK && existingDbSite.status !== SiteStatus.BELUM_DICEK;
-            const newStatus = isDowngradeToBelumDicek ? existingDbSite.status : statusEnum;
-
             await this.prisma.site.update({
               where: { id: existingDbSite.id },
               data: {
                 url: siteUrl,
-                status: newStatus,
+                status: statusEnum,
               },
             });
             site.id = existingDbSite.id;

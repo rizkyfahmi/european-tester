@@ -29,10 +29,6 @@ const CONFIG = {
  */
 function getSiteDateStr(site) {
   if (!site) return getTodayDateStr();
-  if (site.lastTestedAt && site.status !== 'BELUM_DICEK') {
-    const match = String(site.lastTestedAt).match(/^(\d{4}-\d{2}-\d{2})/);
-    if (match) return match[1];
-  }
   if (site.targetDate && /^\d{4}-\d{2}-\d{2}$/.test(site.targetDate)) {
     return site.targetDate;
   }

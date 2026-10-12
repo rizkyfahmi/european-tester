@@ -296,7 +296,7 @@ export function ensureDailyMasterSites(sites: SiteItem[], targetDateStr?: string
   const finalUniqueList = Array.from(uniqueDateMap.values());
 
   if (hasChanged && typeof window !== 'undefined') {
-    saveStoredSites(finalUniqueList, { skipSync: true });
+    saveStoredSites(finalUniqueList);
   }
 
   return finalUniqueList;
@@ -312,36 +312,10 @@ export async function fetchSitesFromApi(): Promise<SiteItem[]> {
       const sitesArray: SiteItem[] = Array.isArray(json) ? json : (json && json.data ? json.data : []);
       if (Array.isArray(sitesArray)) {
         if (sitesArray.length > 0) {
-          // Merge with localSites so tested status on any date is preserved!
-          const mergedWithLocal = [...sitesArray];
-          localSites.forEach((local) => {
-            if (local && local.status && local.status !== 'BELUM_DICEK') {
-              const lDate = local.targetDate || '';
-              const lName = (local.name || '').trim().toLowerCase();
-              const existingIdx = mergedWithLocal.findIndex((s) => {
-                const sDate = s.targetDate || '';
-                const sName = (s.name || '').trim().toLowerCase();
-                return sName === lName && sDate === lDate;
-              });
-              if (existingIdx >= 0) {
-                if (mergedWithLocal[existingIdx].status === 'BELUM_DICEK') {
-                  mergedWithLocal[existingIdx] = {
-                    ...mergedWithLocal[existingIdx],
-                    status: local.status,
-                    lastTestedBy: local.lastTestedBy || mergedWithLocal[existingIdx].lastTestedBy,
-                    lastTestedAt: local.lastTestedAt || mergedWithLocal[existingIdx].lastTestedAt,
-                  };
-                }
-              } else {
-                mergedWithLocal.push(local);
-              }
-            }
-          });
-
           if (typeof window !== 'undefined') {
-            localStorage.setItem('sites_data_v3', JSON.stringify(mergedWithLocal));
+            localStorage.setItem('sites_data_v3', JSON.stringify(sitesArray));
           }
-          return mergedWithLocal;
+          return sitesArray;
         } else if (localSites.length > 0) {
           // Auto-sync local storage sites back to server database if server returned empty data
           fetchWithTimeout(
