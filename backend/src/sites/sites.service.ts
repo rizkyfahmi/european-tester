@@ -111,48 +111,93 @@ export class SitesService {
           include: {
             testingResults: {
               orderBy: { testedAt: 'desc' },
-              take: 1,
             },
           },
           orderBy: { createdAt: 'desc' },
         });
 
-        const fileSites = this.readSitesFromFile();
-        const fileMap = new Map<string, SiteItem>();
-        fileSites.forEach((s) => {
-          if (s.id) fileMap.set(s.id, s);
-          if (s.name) fileMap.set(s.name.trim().toLowerCase(), s);
-        });
         const todayStr = new Date().toISOString().split('T')[0];
+        const formattedSites: SiteItem[] = [];
 
-        const formattedSites = sites.map((site) => {
-          const latestTest = site.testingResults[0];
-          const cached = fileMap.get(site.id) || fileMap.get(site.name.trim().toLowerCase());
-          const targetDate = cached?.targetDate || (site.createdAt ? site.createdAt.toISOString().split('T')[0] : todayStr);
-          const targetEndDate = cached?.targetEndDate || null;
+        sites.forEach((site) => {
+          const createdDateStr = site.createdAt ? site.createdAt.toISOString().split('T')[0] : todayStr;
+          const siteStatusStr = site.status === 'SELESAI' ? 'BERHASIL' : site.status === 'GAGAL_ADA_REPORT' ? 'GAGAL' : site.status;
 
-          return {
-            id: site.id,
-            name: site.name,
-            url: site.url,
-            status: site.status === 'SELESAI' ? 'BERHASIL' : site.status === 'GAGAL_ADA_REPORT' ? 'GAGAL' : site.status,
-            lastTestedBy: latestTest?.testerName || site.currentTester || null,
-            lastTestedAt: latestTest ? latestTest.testedAt.toISOString() : site.completedAt ? site.completedAt.toISOString() : null,
-            targetDate,
-            targetEndDate,
-            notes: latestTest?.notes || null,
-            version: site.version,
-            createdAt: site.createdAt.toISOString(),
-            updatedAt: site.updatedAt.toISOString(),
-          };
+          // Track dates that have tests
+          const testedDateSet = new Set<string>();
+
+          // 1. Add records for each unique test date from testingResults
+          if (Array.isArray(site.testingResults)) {
+            site.testingResults.forEach((test) => {
+              const testDateStr = test.testedAt ? test.testedAt.toISOString().split('T')[0] : todayStr;
+              if (!testedDateSet.has(testDateStr)) {
+                testedDateSet.add(testDateStr);
+                formattedSites.push({
+                  id: site.id,
+                  name: site.name,
+                  url: site.url,
+                  status: test.result === 'BERHASIL' ? 'BERHASIL' : 'GAGAL',
+                  lastTestedBy: test.testerName,
+                  lastTestedAt: test.testedAt.toISOString(),
+                  targetDate: testDateStr,
+                  targetEndDate: null,
+                  notes: test.notes || null,
+                  version: test.version || site.version,
+                  createdAt: site.createdAt.toISOString(),
+                  updatedAt: test.updatedAt ? test.updatedAt.toISOString() : site.updatedAt.toISOString(),
+                });
+              }
+            });
+          }
+
+          // 2. If the site itself has a completed status for today but not in testingResults
+          if (siteStatusStr !== 'BELUM_DICEK' && !testedDateSet.has(todayStr)) {
+            testedDateSet.add(todayStr);
+            formattedSites.push({
+              id: site.id,
+              name: site.name,
+              url: site.url,
+              status: siteStatusStr,
+              lastTestedBy: site.currentTester || null,
+              lastTestedAt: site.completedAt ? site.completedAt.toISOString() : site.updatedAt.toISOString(),
+              targetDate: todayStr,
+              targetEndDate: null,
+              notes: null,
+              version: site.version,
+              createdAt: site.createdAt.toISOString(),
+              updatedAt: site.updatedAt.toISOString(),
+            });
+          }
+
+          // 3. Always include the master baseline prototype with creation date
+          if (!testedDateSet.has(createdDateStr)) {
+            formattedSites.push({
+              id: site.id,
+              name: site.name,
+              url: site.url,
+              status: 'BELUM_DICEK',
+              lastTestedBy: null,
+              lastTestedAt: null,
+              targetDate: createdDateStr,
+              targetEndDate: null,
+              notes: null,
+              version: site.version,
+              createdAt: site.createdAt.toISOString(),
+              updatedAt: site.updatedAt.toISOString(),
+            });
+          }
         });
 
-        // Merge DB sites and File sites so all daily records created/updated are preserved
+        const fileSites = this.readSitesFromFile();
         const mergedMap = new Map<string, SiteItem>();
-        formattedSites.forEach((s) => mergedMap.set(s.id, s));
+        formattedSites.forEach((s) => {
+          const key = `${s.name.trim().toLowerCase()}_${s.targetDate}`;
+          mergedMap.set(key, s);
+        });
+
         fileSites.forEach((s) => {
-          if (s && s.id) {
-            const key = s.id;
+          if (s && s.name && s.targetDate) {
+            const key = `${s.name.trim().toLowerCase()}_${s.targetDate}`;
             if (!mergedMap.has(key)) {
               mergedMap.set(key, s);
             }
@@ -377,9 +422,17 @@ export class SitesService {
               ? ReportStatus.ADA
               : ReportStatus.TIDAK_ADA;
 
+          const startOfDay = new Date(`${targetDate}T00:00:00.000Z`);
+          const endOfDay = new Date(`${targetDate}T23:59:59.999Z`);
           const existingResult = await this.prisma.testingResult.findFirst({
-            where: { siteId: site.id },
-            orderBy: { createdAt: 'desc' },
+            where: {
+              siteId: site.id,
+              testedAt: {
+                gte: startOfDay,
+                lte: endOfDay,
+              },
+            },
+            orderBy: { testedAt: 'desc' },
           });
 
           let newTestingResult: any;
@@ -699,53 +752,6 @@ export class SitesService {
 
     const cutoffDate = deleteDate ? getPreviousDateStr(deleteDate) : null;
 
-    if (!deleteDate) {
-      // Full Unconditional Delete (No targetDate specified)
-      if (this.prisma.isConnected) {
-        try {
-          const matchingSites = await this.prisma.site.findMany({
-            where: {
-              OR: [
-                { id: cleanId },
-                { name: { equals: resolvedName } },
-              ],
-            },
-          });
-
-          if (matchingSites.length > 0) {
-            deletedSite = matchingSites[0];
-            await this.prisma.site.deleteMany({
-              where: {
-                id: { in: matchingSites.map((s) => s.id) },
-              },
-            });
-
-            try {
-              await this.prisma.auditLog.create({
-                data: {
-                  recordId: deletedSite.id,
-                  entityType: 'SITE',
-                  changedFrom: JSON.stringify(deletedSite),
-                  changedTo: 'DELETED',
-                  changedBy: 'System / User',
-                  source: AuditSource.WEBSITE,
-                },
-              });
-            } catch (auditErr) {
-              console.warn('Could not write audit log for delete:', auditErr);
-            }
-          }
-        } catch (dbErr) {
-          console.warn('Prisma delete site error:', dbErr);
-        }
-      }
-
-      const updated = fileSites.filter((s) => !isTargetSiteEntry(s));
-      this.writeSitesToFile(updated);
-      return { success: true, id: cleanId, deleteDate: null, cutoffDate: null };
-    }
-
-    // Cutoff Delete (deleteDate IS specified) -> PRESERVE historical records before deleteDate!
     if (this.prisma.isConnected) {
       try {
         const matchingSites = await this.prisma.site.findMany({
@@ -756,50 +762,42 @@ export class SitesService {
             ],
           },
         });
+
         if (matchingSites.length > 0) {
           deletedSite = matchingSites[0];
+          await this.prisma.site.deleteMany({
+            where: {
+              id: { in: matchingSites.map((s) => s.id) },
+            },
+          });
+
+          await this.prisma.testingResult.deleteMany({
+            where: {
+              siteId: { in: matchingSites.map((s) => s.id) },
+            },
+          });
+
+          try {
+            await this.prisma.auditLog.create({
+              data: {
+                recordId: deletedSite.id,
+                entityType: 'SITE',
+                changedFrom: JSON.stringify(deletedSite),
+                changedTo: 'DELETED',
+                changedBy: 'System / User',
+                source: AuditSource.WEBSITE,
+              },
+            });
+          } catch (auditErr) {
+            console.warn('Could not write audit log for delete:', auditErr);
+          }
         }
       } catch (dbErr) {
-        console.warn('Prisma cutoff site query error:', dbErr);
+        console.warn('Prisma delete site error:', dbErr);
       }
     }
 
-    let foundMaster = false;
-    const updated = fileSites
-      .filter((s) => {
-        const sDate = s.targetDate || (s.lastTestedAt ? s.lastTestedAt.split('T')[0] : '');
-
-        if (isTargetSiteEntry(s)) {
-          if (sDate && sDate >= deleteDate) {
-            return false;
-          }
-        }
-        return true;
-      })
-      .map((s) => {
-        if (isTargetSiteEntry(s)) {
-          foundMaster = true;
-          return {
-            ...s,
-            targetEndDate: cutoffDate,
-          };
-        }
-        return s;
-      });
-
-    const originalStartDate = masterSiteInFile?.targetDate || (deletedSite?.createdAt ? deletedSite.createdAt.toISOString().split('T')[0] : deleteDate);
-
-    if (!foundMaster) {
-      updated.unshift({
-        id: masterSiteInFile?.id || `site_cutoff_${Date.now()}`,
-        name: resolvedName,
-        url: masterSiteInFile?.url || '',
-        status: masterSiteInFile?.status || 'BELUM_DICEK',
-        targetDate: originalStartDate,
-        targetEndDate: cutoffDate,
-      });
-    }
-
+    const updated = fileSites.filter((s) => !isTargetSiteEntry(s));
     this.writeSitesToFile(updated);
 
     return {
@@ -847,7 +845,6 @@ export class SitesService {
       for (const site of merged) {
         if (!site || !site.name) continue;
         try {
-          const statusEnum = site.status === 'BERHASIL' ? SiteStatus.SELESAI : site.status === 'GAGAL' ? SiteStatus.GAGAL_ADA_REPORT : SiteStatus.BELUM_DICEK;
           const siteName = site.name.trim();
           const siteUrl = site.url && site.url.trim() ? site.url.trim() : `https://${siteName.toLowerCase().replace(/[^a-z0-9]/g, '')}.com`;
 
@@ -855,21 +852,33 @@ export class SitesService {
             where: { name: { equals: siteName } },
           });
 
+          const hasTestedStatus = site.status === 'BERHASIL' || site.status === 'GAGAL';
+
           if (existingDbSite) {
+            // NEVER downgrade an existing completed site to BELUM_DICEK during background sync!
+            const newStatus = hasTestedStatus
+              ? (site.status === 'BERHASIL' ? SiteStatus.SELESAI : SiteStatus.GAGAL_ADA_REPORT)
+              : existingDbSite.status;
+
+            const newTester = site.lastTestedBy?.trim() || existingDbSite.currentTester;
+
             await this.prisma.site.update({
               where: { id: existingDbSite.id },
               data: {
                 url: siteUrl,
-                status: statusEnum,
+                status: newStatus,
+                ...(newTester && { currentTester: newTester }),
               },
             });
             site.id = existingDbSite.id;
           } else {
+            const statusEnum = site.status === 'BERHASIL' ? SiteStatus.SELESAI : site.status === 'GAGAL' ? SiteStatus.GAGAL_ADA_REPORT : SiteStatus.BELUM_DICEK;
             const newDbSite = await this.prisma.site.create({
               data: {
                 name: siteName,
                 url: siteUrl,
                 status: statusEnum,
+                currentTester: site.lastTestedBy?.trim() || null,
                 version: 1,
               },
             });

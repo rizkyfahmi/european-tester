@@ -12,6 +12,9 @@ export interface UpdateSiteRowDto {
   url?: string;
   status?: 'BELUM_DICEK' | 'SEDANG_DICEK' | 'SELESAI' | 'GAGAL_ADA_REPORT' | 'BERHASIL' | 'GAGAL';
   currentTester?: string;
+  testerName?: string;
+  result?: 'BERHASIL' | 'GAGAL';
+  notes?: string;
   targetDate?: string;
   version?: number;
   source?: 'WEBSITE' | 'GOOGLE_SHEETS';

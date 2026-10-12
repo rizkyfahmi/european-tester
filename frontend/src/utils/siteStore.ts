@@ -296,7 +296,7 @@ export function ensureDailyMasterSites(sites: SiteItem[], targetDateStr?: string
   const finalUniqueList = Array.from(uniqueDateMap.values());
 
   if (hasChanged && typeof window !== 'undefined') {
-    saveStoredSites(finalUniqueList);
+    saveStoredSites(finalUniqueList, { skipSync: true });
   }
 
   return finalUniqueList;

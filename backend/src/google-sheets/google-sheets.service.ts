@@ -218,33 +218,86 @@ export class GoogleSheetsService {
 
     // Synchronize to Prisma DB if available
     try {
-      const siteName = (dto.name || updatedSiteItem.name || '').trim();
-      const siteUrl = (dto.url || updatedSiteItem.url || '').trim() || `https://${siteName.toLowerCase().replace(/[^a-z0-9]/g, '')}.com`;
-      const statusEnum = (dto.status === 'BERHASIL' ? SiteStatus.SELESAI : dto.status === 'GAGAL' ? SiteStatus.GAGAL_ADA_REPORT : SiteStatus.BELUM_DICEK);
+      if (this.prisma.isConnected) {
+        const siteName = (dto.name || updatedSiteItem.name || '').trim();
+        const siteUrl = (dto.url || updatedSiteItem.url || '').trim() || `https://${siteName.toLowerCase().replace(/[^a-z0-9]/g, '')}.com`;
+        const statusEnum = (dto.status === 'BERHASIL' ? SiteStatus.SELESAI : dto.status === 'GAGAL' ? SiteStatus.GAGAL_ADA_REPORT : SiteStatus.BELUM_DICEK);
 
-      const dbSite = await this.prisma.site.findFirst({
-        where: { OR: [{ id }, { name: siteName }] },
-      });
+        let dbSite = await this.prisma.site.findFirst({
+          where: { OR: [{ id }, { name: siteName }] },
+        });
 
-      if (dbSite) {
-        await this.prisma.site.update({
-          where: { id: dbSite.id },
-          data: {
-            url: siteUrl,
-            status: statusEnum,
-            ...(cleanTester && { currentTester: cleanTester }),
-          },
-        });
-      } else if (siteName) {
-        await this.prisma.site.create({
-          data: {
-            name: siteName,
-            url: siteUrl,
-            status: statusEnum,
-            currentTester: cleanTester,
-            version: 1,
-          },
-        });
+        if (dbSite) {
+          await this.prisma.site.update({
+            where: { id: dbSite.id },
+            data: {
+              url: siteUrl,
+              status: statusEnum,
+              ...(cleanTester && { currentTester: cleanTester }),
+              version: dbSite.version + 1,
+              ...(statusEnum !== SiteStatus.BELUM_DICEK ? { completedAt: new Date() } : { completedAt: null }),
+            },
+          });
+        } else if (siteName) {
+          dbSite = await this.prisma.site.create({
+            data: {
+              name: siteName,
+              url: siteUrl,
+              status: statusEnum,
+              currentTester: cleanTester,
+              version: 1,
+              ...(statusEnum !== SiteStatus.BELUM_DICEK ? { completedAt: new Date() } : {}),
+            },
+          });
+        }
+
+        // Sync TestingResult for that date
+        if (dbSite) {
+          const targetDateStr = targetDate || new Date().toISOString().split('T')[0];
+          const startOfDay = new Date(`${targetDateStr}T00:00:00.000Z`);
+          const endOfDay = new Date(`${targetDateStr}T23:59:59.999Z`);
+
+          if (dto.status === 'BERHASIL' || dto.status === 'GAGAL') {
+            const testResultEnum = dto.status === 'BERHASIL' ? 'BERHASIL' : 'GAGAL';
+            const existingTest = await this.prisma.testingResult.findFirst({
+              where: {
+                siteId: dbSite.id,
+                testedAt: { gte: startOfDay, lte: endOfDay },
+              },
+            });
+
+            if (existingTest) {
+              await this.prisma.testingResult.update({
+                where: { id: existingTest.id },
+                data: {
+                  testerName: cleanTester || existingTest.testerName,
+                  result: testResultEnum as any,
+                  notes: dto.notes || existingTest.notes,
+                  version: existingTest.version + 1,
+                  testedAt: new Date(),
+                },
+              });
+            } else {
+              await this.prisma.testingResult.create({
+                data: {
+                  siteId: dbSite.id,
+                  testerName: cleanTester || 'Google Sheets User',
+                  result: testResultEnum as any,
+                  notes: dto.notes || '-',
+                  version: 1,
+                  testedAt: new Date(),
+                },
+              });
+            }
+          } else if (dto.status === 'BELUM_DICEK') {
+            await this.prisma.testingResult.deleteMany({
+              where: {
+                siteId: dbSite.id,
+                testedAt: { gte: startOfDay, lte: endOfDay },
+              },
+            });
+          }
+        }
       }
     } catch (e) {
       console.warn('Prisma sync error in updateSiteRow:', e);
