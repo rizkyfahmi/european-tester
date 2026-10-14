@@ -475,14 +475,21 @@ export async function submitTestResultApi(
   };
   addTestingLog(newLog);
 
+  // Resolve best site ID: prefer real database master UUID (which has no slashes)
+  const masterSite = currentSites.find(
+    (s) => !s.id.startsWith('daily_') && s.name.trim().toLowerCase() === targetName
+  );
+  const effectiveApiSiteId = masterSite?.id || siteId;
+
   try {
     const res = await fetchWithTimeout(
-      `${getSitesApiUrl()}/${encodeURIComponent(siteId)}/test`,
+      `${getSitesApiUrl()}/${encodeURIComponent(effectiveApiSiteId)}/test`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...resultData,
+          siteId,
           siteName: updatedSite.name,
           siteUrl: updatedSite.url,
           targetDate: targetDateStr,

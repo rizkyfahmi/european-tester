@@ -60,9 +60,35 @@ export class SitesController {
     };
   }
 
+  @Delete(':part1/:part2')
+  async deleteSiteTwoParts(
+    @Param('part1') part1: string,
+    @Param('part2') part2: string,
+    @Query('targetDate') targetDate?: string,
+  ) {
+    const id = `${part1}/${part2}`;
+    const data = await this.sitesService.deleteSite(id, targetDate);
+    return {
+      status: 'SUCCESS',
+      data,
+    };
+  }
+
   @Delete('by-name/:name')
   async deleteSiteByName(@Param('name') name: string) {
     const data = await this.sitesService.deleteSiteByName(name);
+    return {
+      status: 'SUCCESS',
+      data,
+    };
+  }
+
+  @Post('test')
+  async updateTestResultDirect(
+    @Body() resultData: { siteId?: string; id?: string; testerName: string; result: 'BERHASIL' | 'GAGAL'; notes?: string; reportStatus?: 'ADA' | 'TIDAK_ADA' },
+  ) {
+    const id = resultData.siteId || resultData.id || '';
+    const data = await this.sitesService.updateTestResult(id, resultData);
     return {
       status: 'SUCCESS',
       data,
@@ -74,6 +100,35 @@ export class SitesController {
     @Param('id') id: string,
     @Body() resultData: { testerName: string; result: 'BERHASIL' | 'GAGAL'; notes?: string; reportStatus?: 'ADA' | 'TIDAK_ADA' },
   ) {
+    const data = await this.sitesService.updateTestResult(id, resultData);
+    return {
+      status: 'SUCCESS',
+      data,
+    };
+  }
+
+  @Post(':part1/:part2/test')
+  async updateTestResultTwoParts(
+    @Param('part1') part1: string,
+    @Param('part2') part2: string,
+    @Body() resultData: { testerName: string; result: 'BERHASIL' | 'GAGAL'; notes?: string; reportStatus?: 'ADA' | 'TIDAK_ADA' },
+  ) {
+    const id = `${part1}/${part2}`;
+    const data = await this.sitesService.updateTestResult(id, resultData);
+    return {
+      status: 'SUCCESS',
+      data,
+    };
+  }
+
+  @Post(':part1/:part2/:part3/test')
+  async updateTestResultThreeParts(
+    @Param('part1') part1: string,
+    @Param('part2') part2: string,
+    @Param('part3') part3: string,
+    @Body() resultData: { testerName: string; result: 'BERHASIL' | 'GAGAL'; notes?: string; reportStatus?: 'ADA' | 'TIDAK_ADA' },
+  ) {
+    const id = `${part1}/${part2}/${part3}`;
     const data = await this.sitesService.updateTestResult(id, resultData);
     return {
       status: 'SUCCESS',

@@ -11,7 +11,22 @@ let hasReceivedClientSync = false;
 async function handleProxy(req: NextRequest, context: { params: Promise<{ path: string[] }> }) {
   const resolvedParams = await context.params;
   const pathParts = resolvedParams.path || [];
-  const subPath = pathParts.join('/');
+
+  // Determine subPath while preserving encoded characters (like %2F in site IDs)
+  let subPath = pathParts.join('/');
+  try {
+    const rawUrl = new URL(req.url);
+    const match = rawUrl.pathname.match(/\/api\/v1\/(.+)$/);
+    if (match && match[1]) {
+      subPath = match[1];
+    }
+  } catch {}
+
+  // If path was split by Next.js because of decoded %2F in /sites/:id/test
+  if (pathParts[0] === 'sites' && pathParts[pathParts.length - 1] === 'test' && pathParts.length > 3) {
+    const middleId = pathParts.slice(1, -1).join('/');
+    subPath = `sites/${encodeURIComponent(middleId)}/test`;
+  }
 
   const searchParams = req.nextUrl.search;
   const targetUrl = `${BACKEND_URL}/${subPath}${searchParams}`;
